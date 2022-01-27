@@ -1,0 +1,35 @@
+syntax="proto3";
+
+package example;
+
+import "q.proto";
+
+// Message composed of scalar types.
+message Scalar{
+  bool bool_f = 1;
+  int32 int_f = 2;
+  int64 long_f = 3;
+  float real_f = 4;
+  double float_f = 5;
+  q.symbol symbol_f = 6;
+  q.timestamp timestamp_f = 7;
+  q.month month_f = 8;
+  q.date date_f = 9;
+  q.datetime datetime_f = 10;
+  q.timespan timespan_f = 11;
+  q.minute minute_f = 12;
+  q.second second_f = 13;
+  q.time time_f = 14;
+}
+
+// Inner message contained in `Outer`.
+message Inner{
+  int64 inner_muscle = 1;
+  q.symbol inner_mind = 2;
+}
+
+// Nested message.
+message Outer{
+  bool out_law = 1;
+  Inner inner = 2;
+}

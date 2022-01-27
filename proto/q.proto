@@ -1,0 +1,39 @@
+syntax="proto3";
+
+package q;
+
+message symbol{
+  string symbol = 1;
+}
+
+message timestamp{
+  int64 nanos = 1;
+}
+
+message month{
+  int32 months = 1;
+}
+
+message date{
+  int32 days = 1;
+}
+
+message datetime{
+  double days = 1;
+}
+
+message timespan{
+  int64 nanos = 1;
+}
+
+message minute{
+  int32 minutes = 1;
+}
+
+message second{
+  int32 seconds = 1;
+}
+
+message time{
+  int32 millis = 1;
+}
