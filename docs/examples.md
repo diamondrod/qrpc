@@ -10,7 +10,7 @@ package example;
 import "q.proto";
 
 // Message composed of scalar types.
-message Scalar{
+message Atoms{
   bool bool_f = 1;
   int32 int_f = 2;
   int64 long_f = 3;
@@ -40,11 +40,12 @@ message Outer{
 }
 ```
 
-## Scalar Example
+## Atom Example
 
 ```q
-q)encoded: .grpc.encode[`example.Scalar; `bool_f`int_f`long_f`real_f`symbol_f`timestamp_f`month_f`date_f`datetime_f`timespan_f`minute_f`second_f`time_f!(1b; 42i; 7; 1.23e; `kdb; .z.p; 2022.01m; 2022.01.27; .z.z; 1D23:45:01.23456789; 12:34; 12:34:56; 12:34:56.789)]
-q).grpc.decode[`example.Scalar; encoded]
+q)atoms: `bool_f`int_f`long_f`real_f`symbol_f`timestamp_f`month_f`date_f`datetime_f`timespan_f`minute_f`second_f`time_f!(1b; 42i; 7; 1.23e; `kdb; .z.p; 2022.01m; 2022.01.27; .z.z; 1D23:45:01.23456789; 12:34; 12:34:56; 12:34:56.789);
+q)encoded: .grpc.encode[`example.Atoms; atoms]
+q).grpc.decode[`example.Atoms; encoded]
 bool_f     | 1b
 int_f      | 42i
 long_f     | 7
@@ -59,6 +60,27 @@ timespan_f | 1D23:45:01.234567890
 minute_f   | 12:34
 second_f   | 12:34:56
 time_f     | 12:34:56.789
+```
+
+## List Example
+
+```q
+q)atoms: `bool_f`int_f`long_f`real_f`symbol_f`timestamp_f`month_f`date_f`datetime_f`timespan_f`minute_f`second_f`time_f!(1b; 42i; 7; 1.23e; `kdb; .z.p; 2022.01m; 2022.01.27; .z.z; 1D23:45:01.23456789; 12:34; 12:34:56; 12:34:56.789);
+q)lists: 2 #/: atoms;
+q)encoded: .grpc.encode[`example.Lists; lists]
+q).grpc.decode[`example.Lists; encoded]bool_f     | 11bint_f      | 42 42i
+long_f     | 7 7
+real_f     | 1.23 1.23e
+float_f    | `float$()
+symbol_f   | `kdb`kdb
+timestamp_f| 2022.01.29D10:03:41.725881000 2022.01.29D10:03:41.725881000
+month_f    | 2022.01 2022.01m
+date_f     | 2022.01.27 2022.01.27
+datetime_f | 2022.01.29T10:03:41.725 2022.01.29T10:03:41.725
+timespan_f | 1D23:45:01.234567890 1D23:45:01.234567890
+minute_f   | 12:34 12:34
+second_f   | 12:34:56 12:34:56
+time_f     | 12:34:56.789 12:34:56.789
 ```
 
 ## Nested Message

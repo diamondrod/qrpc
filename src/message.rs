@@ -10,6 +10,7 @@ use prost::Message;
 use prost_reflect::{DynamicMessage, FileDescriptor, Value, ReflectMessage, MessageDescriptor, FieldDescriptor, Kind};
 use kdbplus::qtype;
 use kdbplus::api::*;
+use kdbplus::api::native::k;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 //>> Global Variables
@@ -152,7 +153,7 @@ fn set_float_to_message(value: f64, field: &FieldDescriptor, dynamic_message: &m
 
 fn set_symbol_to_message(value: &str, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
-    Kind::Message(message) if message.full_name() == "q.symbol" => {
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.symbol" => {
       let mut inner = DynamicMessage::new(SYMBOL_MESSAGE_DESCRIPTOR.clone());
       inner.set_field_by_name("symbol", Value::String(value.to_string()));
       dynamic_message.set_field(&field, Value::Message(inner));
@@ -164,7 +165,7 @@ fn set_symbol_to_message(value: &str, field: &FieldDescriptor, dynamic_message: 
 
 fn set_timestamp_to_message(value: i64, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
-    Kind::Message(message) if message.full_name() == "q.timestamp" => {
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.timestamp" => {
       let mut inner = DynamicMessage::new(TIMESTAMP_MESSAGE_DESCRIPTOR.clone());
       inner.set_field_by_name("nanos", Value::I64(value));
       dynamic_message.set_field(&field, Value::Message(inner));
@@ -176,7 +177,7 @@ fn set_timestamp_to_message(value: i64, field: &FieldDescriptor, dynamic_message
 
 fn set_month_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
-    Kind::Message(message) if message.full_name() == "q.month" => {
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.month" => {
       let mut inner = DynamicMessage::new(MONTH_MESSAGE_DESCRIPTOR.clone());
       inner.set_field_by_name("months", Value::I32(value));
       dynamic_message.set_field(&field, Value::Message(inner));
@@ -188,7 +189,7 @@ fn set_month_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &m
 
 fn set_date_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
-    Kind::Message(message) if message.full_name() == "q.date" => {
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.date" => {
       let mut inner = DynamicMessage::new(DATE_MESSAGE_DESCRIPTOR.clone());
       inner.set_field_by_name("days", Value::I32(value));
       dynamic_message.set_field(&field, Value::Message(inner));
@@ -200,7 +201,7 @@ fn set_date_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mu
 
 fn set_datetime_to_message(value: f64, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
-    Kind::Message(message) if message.full_name() == "q.datetime" => {
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.datetime" => {
       let mut inner = DynamicMessage::new(DATETIME_MESSAGE_DESCRIPTOR.clone());
       inner.set_field_by_name("days", Value::F64(value));
       dynamic_message.set_field(&field, Value::Message(inner));
@@ -212,7 +213,7 @@ fn set_datetime_to_message(value: f64, field: &FieldDescriptor, dynamic_message:
 
 fn set_timespan_to_message(value: i64, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
-    Kind::Message(message) if message.full_name() == "q.timespan" => {
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.timespan" => {
       let mut inner = DynamicMessage::new(TIMESPAN_MESSAGE_DESCRIPTOR.clone());
       inner.set_field_by_name("nanos", Value::I64(value));
       dynamic_message.set_field(&field, Value::Message(inner));
@@ -224,7 +225,7 @@ fn set_timespan_to_message(value: i64, field: &FieldDescriptor, dynamic_message:
 
 fn set_minute_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
-    Kind::Message(message) if message.full_name() == "q.minute" => {
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.minute" => {
       let mut inner = DynamicMessage::new(MINUTE_MESSAGE_DESCRIPTOR.clone());
       inner.set_field_by_name("minutes", Value::I32(value));
       dynamic_message.set_field(&field, Value::Message(inner));
@@ -236,7 +237,7 @@ fn set_minute_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &
 
 fn set_second_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
-    Kind::Message(message) if message.full_name() == "q.second" => {
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.second" => {
       let mut inner = DynamicMessage::new(SECOND_MESSAGE_DESCRIPTOR.clone());
       inner.set_field_by_name("seconds", Value::I32(value));
       dynamic_message.set_field(&field, Value::Message(inner));
@@ -248,10 +249,71 @@ fn set_second_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &
 
 fn set_time_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
-    Kind::Message(message) if message.full_name() == "q.time" => {
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.time" => {
       let mut inner = DynamicMessage::new(TIME_MESSAGE_DESCRIPTOR.clone());
       inner.set_field_by_name("millis", Value::I32(value));
       dynamic_message.set_field(&field, Value::Message(inner));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_bool_list_to_message(value: &[u8], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Bool if field.is_list() => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|b| Value::Bool(*b != 0)).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+
+fn set_bytes_to_message(value: &[u8], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::String => {
+      dynamic_message.set_field(field, Value::Bytes(Bytes::copy_from_slice(value)));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_int_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Int32 | Kind::Sint32 if field.is_list() => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|int| Value::I32(*int)).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_long_list_to_message(value: &[i64], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Int64 | Kind::Sint64 if field.is_list() => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|long| Value::I64(*long)).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_real_list_to_message(value: &[f32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Float if field.is_list() => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|real| Value::F32(*real)).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_float_list_to_message(value: &[f64], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Double if field.is_list() => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|float| Value::F64(*float)).collect()));
       Ok(())
     },
     _ => Err("type mismatch\0")
@@ -268,10 +330,127 @@ fn set_string_to_message(value: String, field: &FieldDescriptor, dynamic_message
   }
 }
 
-fn set_bytes_to_message(value: &[u8], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+fn set_symbol_list_to_message(value: &[S], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
-    Kind::String => {
-      dynamic_message.set_field(field, Value::Bytes(Bytes::copy_from_slice(value)));
+    Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.symbol" => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|symbol|{
+        let mut inner = DynamicMessage::new(SYMBOL_MESSAGE_DESCRIPTOR.clone());
+        inner.set_field_by_name("symbol", Value::String(S_to_str(*symbol).to_string()));
+        Value::Message(inner)
+      }).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_timestamp_list_to_message(value: &[i64], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.timestamp" => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
+        let mut inner = DynamicMessage::new(TIMESTAMP_MESSAGE_DESCRIPTOR.clone());
+        inner.set_field_by_name("nanos", Value::I64(*value));
+        Value::Message(inner)
+      }).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_month_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.month" => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
+        let mut inner = DynamicMessage::new(MONTH_MESSAGE_DESCRIPTOR.clone());
+        inner.set_field_by_name("months", Value::I32(*value));
+        Value::Message(inner)
+      }).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_date_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.date" => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
+        let mut inner = DynamicMessage::new(DATE_MESSAGE_DESCRIPTOR.clone());
+        inner.set_field_by_name("days", Value::I32(*value));
+        Value::Message(inner)
+      }).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_datetime_list_to_message(value: &[f64], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.datetime" => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
+        let mut inner = DynamicMessage::new(DATETIME_MESSAGE_DESCRIPTOR.clone());
+        inner.set_field_by_name("days", Value::F64(*value));
+        Value::Message(inner)
+      }).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+
+fn set_timespan_list_to_message(value: &[i64], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.timespan" => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
+        let mut inner = DynamicMessage::new(TIMESPAN_MESSAGE_DESCRIPTOR.clone());
+        inner.set_field_by_name("nanos", Value::I64(*value));
+        Value::Message(inner)
+      }).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_minute_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.minute" => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
+        let mut inner = DynamicMessage::new(MINUTE_MESSAGE_DESCRIPTOR.clone());
+        inner.set_field_by_name("minutes", Value::I32(*value));
+        Value::Message(inner)
+      }).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_second_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.second" => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
+        let mut inner = DynamicMessage::new(SECOND_MESSAGE_DESCRIPTOR.clone());
+        inner.set_field_by_name("seconds", Value::I32(*value));
+        Value::Message(inner)
+      }).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_time_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.time" => {
+      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
+        let mut inner = DynamicMessage::new(TIME_MESSAGE_DESCRIPTOR.clone());
+        inner.set_field_by_name("millis", Value::I32(*value));
+        Value::Message(inner)
+      }).collect()));
       Ok(())
     },
     _ => Err("type mismatch\0")
@@ -297,8 +476,6 @@ fn set_value_to_message(value: K, field: &FieldDescriptor, dynamic_message: &mut
     qtype::LONG_ATOM => set_long_to_message(value.get_long().unwrap(), field, dynamic_message),
     qtype::REAL_ATOM => set_real_to_message(value.get_real().unwrap(), field, dynamic_message),
     qtype::FLOAT_ATOM => set_float_to_message(value.get_float().unwrap(), field, dynamic_message),
-    qtype::STRING => set_string_to_message(value.get_string().unwrap(), field, dynamic_message),
-    qtype::BYTE_LIST => set_bytes_to_message(value.as_mut_slice::<G>(), field, dynamic_message),
     qtype::SYMBOL_ATOM => set_symbol_to_message(value.get_symbol().unwrap(), field, dynamic_message),
     qtype::TIMESTAMP_ATOM => set_timestamp_to_message(value.get_long().unwrap(), field, dynamic_message),
     qtype::MONTH_ATOM => set_month_to_message(value.get_int().unwrap(), field, dynamic_message),
@@ -308,6 +485,22 @@ fn set_value_to_message(value: K, field: &FieldDescriptor, dynamic_message: &mut
     qtype::MINUTE_ATOM => set_minute_to_message(value.get_int().unwrap(), field, dynamic_message),
     qtype::SECOND_ATOM => set_second_to_message(value.get_int().unwrap(), field, dynamic_message),
     qtype::TIME_ATOM => set_time_to_message(value.get_int().unwrap(), field, dynamic_message),
+    qtype::BOOL_LIST => set_bool_list_to_message(value.as_mut_slice::<G>(), field, dynamic_message),
+    qtype::BYTE_LIST => set_bytes_to_message(value.as_mut_slice::<G>(), field, dynamic_message),
+    qtype::INT_LIST => set_int_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
+    qtype::LONG_LIST => set_long_list_to_message(value.as_mut_slice::<J>(), field, dynamic_message),
+    qtype::REAL_LIST => set_real_list_to_message(value.as_mut_slice::<E>(), field, dynamic_message),
+    qtype::FLOAT_LIST => set_float_list_to_message(value.as_mut_slice::<F>(), field, dynamic_message),
+    qtype::STRING => set_string_to_message(value.get_string().unwrap(), field, dynamic_message),
+    qtype::SYMBOL_LIST => set_symbol_list_to_message(value.as_mut_slice::<S>(), field, dynamic_message),
+    qtype::TIMESTAMP_LIST => set_timestamp_list_to_message(value.as_mut_slice::<J>(), field, dynamic_message),
+    qtype::MONTH_LIST => set_month_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
+    qtype::DATE_LIST => set_date_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
+    qtype::DATETIME_LIST => set_datetime_list_to_message(value.as_mut_slice::<F>(), field, dynamic_message),
+    qtype::TIMESPAN_LIST => set_timespan_list_to_message(value.as_mut_slice::<J>(), field, dynamic_message),
+    qtype::MINUTE_LIST => set_minute_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
+    qtype::SECOND_LIST => set_second_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
+    qtype::TIME_LIST => set_time_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
     qtype::DICTIONARY => set_dictionary_to_message(value, field, dynamic_message),
     _ => Err("unsupported type\0")
   }
@@ -442,6 +635,368 @@ fn encode_to_message(message_descriptor: MessageDescriptor, data: K) -> Result<D
     _ => unimplemented!()
   }
   Ok(dynamic_message)
+}
+
+/// Decode list of values as q list object and push it to an existing list.
+fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K, compound: &mut K, list_type: &mut i8){
+  match field.kind(){
+    Kind::Bool => {
+      // Bool list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::BOOL_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<G>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_bool().unwrap() as u8;
+      });
+      unsafe{k(0, str_to_S!("{show x}"), increment_reference_count(*compound), KNULL)};
+      compound.push(q_list).unwrap();
+    },
+    Kind::Int32 | Kind::Sint32 => {
+      // Int list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::INT_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<I>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_i32().unwrap();
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Int64 | Kind::Sint64 => {
+      // Int list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::LONG_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<J>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_i64().unwrap();
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Float => {
+      // Float list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::REAL_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<E>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_f32().unwrap();
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Double => {
+      // Int list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::FLOAT_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<F>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_f64().unwrap();
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::String => {
+      // List of string
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::COMPOUND_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<K>();
+      list.iter().enumerate().for_each(|(i, string)|{
+        q_list_slice[i]=new_string(string.as_str().unwrap());
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.symbol" => {
+      // Symbol list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::SYMBOL_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<S>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = enumerate(str_to_S!(element.as_message().unwrap().get_field_by_name("symbol").unwrap().as_str().unwrap()));
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.timestamp" => {
+      // Timestamp list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::TIMESTAMP_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<J>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_message().unwrap().get_field_by_name("nanos").unwrap().as_i64().unwrap();
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.month" => {
+      // Month list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::MONTH_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<I>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_message().unwrap().get_field_by_name("months").unwrap().as_i32().unwrap();
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.date" => {
+      // Date list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::DATE_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<I>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_message().unwrap().get_field_by_name("days").unwrap().as_i32().unwrap();
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.datetime" => {
+      // Month list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::DATETIME_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<F>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_message().unwrap().get_field_by_name("days").unwrap().as_f64().unwrap();
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.timespan" => {
+      // Timespan list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::TIMESPAN_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<J>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_message().unwrap().get_field_by_name("nanos").unwrap().as_i64().unwrap();
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.minute" => {
+      // Minute list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::MINUTE_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<I>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_message().unwrap().get_field_by_name("minutes").unwrap().as_i32().unwrap();
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.second" => {
+      // Minute list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::SECOND_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<I>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_message().unwrap().get_field_by_name("seconds").unwrap().as_i32().unwrap();
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.time" => {
+      // Time list
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::TIME_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<I>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_message().unwrap().get_field_by_name("millis").unwrap().as_i32().unwrap();
+      });
+      compound.push(q_list).unwrap();
+    },
+    Kind::Message(message_descriptor) => {
+      // Protobuf message
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple);
+        }
+      }
+      let q_list = new_list(qtype::COMPOUND_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<K>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        let message = element.as_message().unwrap();
+        q_list_slice[i]=decode_message(&message, message_descriptor.fields());
+      });
+      // Repeated protobuf message is equivalent to repeated dictionary; hence map to table
+      compound.push(unsafe{k(0, str_to_S!("{-1 _ x, ::}"), q_list, KNULL)}).unwrap();
+    },
+    _ => unimplemented!()
+  }
 }
 
 /// Convert dynamic message into q dictionary.
@@ -795,6 +1350,9 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
             }
           }
         },
+        Value::List(list) => {
+          decode_list(list, &field, simple, &mut compound, &mut list_type);
+        },
         Value::Message(message) => {
           // Protobuf message
           let message_descriptor = message.descriptor();
@@ -805,13 +1363,12 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
           match list_type{
             qtype::NULL =>{
               compound = new_list(qtype::COMPOUND_LIST, 0);
-              compound.push(v).unwrap();
             },
             _ => {
               compound = simple_to_compound(simple);
-              compound.push(v).unwrap();
             }
           }
+          compound.push(v).unwrap();
         },
         _ => unimplemented!()
       }
@@ -822,13 +1379,12 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
       match list_type{
         qtype::NULL =>{
           compound = new_list(qtype::COMPOUND_LIST, 0);
-          compound.push(new_null()).unwrap();
         },
         _ => {
           compound = simple_to_compound(simple);
-          compound.push(new_null()).unwrap();
         }
       }
+      compound.push(new_null()).unwrap();
     }
     i += 1;
   });

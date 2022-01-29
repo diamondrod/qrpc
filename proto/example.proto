@@ -4,8 +4,8 @@ package example;
 
 import "q.proto";
 
-// Message composed of scalar types.
-message Scalar{
+// Message composed of atom types.
+message Atoms{
   bool bool_f = 1;
   int32 int_f = 2;
   int64 long_f = 3;
@@ -20,6 +20,24 @@ message Scalar{
   q.minute minute_f = 12;
   q.second second_f = 13;
   q.time time_f = 14;
+}
+
+// Message composed of list types.
+message Lists{
+  repeated bool bool_f = 1;
+  repeated int32 int_f = 2;
+  repeated int64 long_f = 3;
+  repeated float real_f = 4;
+  repeated double float_f = 5;
+  repeated q.symbol symbol_f = 6;
+  repeated q.timestamp timestamp_f = 7;
+  repeated q.month month_f = 8;
+  repeated q.date date_f = 9;
+  repeated q.datetime datetime_f = 10;
+  repeated q.timespan timespan_f = 11;
+  repeated q.minute minute_f = 12;
+  repeated q.second second_f = 13;
+  repeated q.time time_f = 14;
 }
 
 // Inner message contained in `Outer`.

@@ -9,7 +9,10 @@
 @param `data`: q dictionary.
 @example
 ```
-q)encoded: .grpc.encode[`example.Scalar; `bool_f`int_f`long_f`real_f`symbol_f`timestamp_f`month_f`date_f`datetime_f`timespan_f`minute_f`second_f`time_f!(1b; 42i; 7; 1.23e; `kdb; .z.p; 2022.01m; 2022.01.27; .z.z; 1D23:45:01.23456789; 12:34; 12:34:56; 12:34:56.789)]
+q)atoms: `bool_f`int_f`long_f`real_f`symbol_f`timestamp_f`month_f`date_f`datetime_f`timespan_f`minute_f`second_f`time_f!(1b; 42i; 7; 1.23e; `kdb; .z.p; 2022.01m; 2022.01.27; .z.z; 1D23:45:01.23456789; 12:34; 12:34:56; 12:34:56.789)
+q)encoded: .grpc.encode[`example.Atoms; atoms]
+q)encoded
+0x0801102a180725a4709d3f32050a036b64623a0a08c8ffb7fb8794dad50942030888024a030..
 ```
 \
 .grpc.encode: `libqrpc 2: (`encode; 2);
@@ -20,7 +23,9 @@ q)encoded: .grpc.encode[`example.Scalar; `bool_f`int_f`long_f`real_f`symbol_f`ti
 @param `bytes`: Protobuf encoded bytes.
 @example
 ```
-q).grpc.decode[`example.Scalar; encoded]
+q)atoms: `bool_f`int_f`long_f`real_f`symbol_f`timestamp_f`month_f`date_f`datetime_f`timespan_f`minute_f`second_f`time_f!(1b; 42i; 7; 1.23e; `kdb; .z.p; 2022.01m; 2022.01.27; .z.z; 1D23:45:01.23456789; 12:34; 12:34:56; 12:34:56.789)
+q)encoded: .grpc.encode[`example.Atoms; atoms]
+q).grpc.decode[`example.Atoms; encoded]
 bool_f     | 1b
 int_f      | 42i
 long_f     | 7
