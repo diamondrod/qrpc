@@ -20,24 +20,6 @@ use kdbplus::api::native::k;
 const PROTO_FILE_DESCRIPTOR_SET_BYTES: &[u8] = include_bytes!("../qrpc_fd_set");
 /// File descriptor of compiled files.
 static PROTO_FILE_DESCRIPTOR: Lazy<FileDescriptor> = Lazy::new(|| FileDescriptor::decode(PROTO_FILE_DESCRIPTOR_SET_BYTES).unwrap());
-/// Symbol message descriptor.
-static SYMBOL_MESSAGE_DESCRIPTOR: Lazy<MessageDescriptor> = Lazy::new(|| PROTO_FILE_DESCRIPTOR.get_message_by_name("q.symbol").unwrap());
-/// Timestamp message descriptor.
-static TIMESTAMP_MESSAGE_DESCRIPTOR: Lazy<MessageDescriptor> = Lazy::new(|| PROTO_FILE_DESCRIPTOR.get_message_by_name("q.timestamp").unwrap());
-/// Month message descriptor.
-static MONTH_MESSAGE_DESCRIPTOR: Lazy<MessageDescriptor> = Lazy::new(|| PROTO_FILE_DESCRIPTOR.get_message_by_name("q.month").unwrap());
-/// Date message descriptor.
-static DATE_MESSAGE_DESCRIPTOR: Lazy<MessageDescriptor> = Lazy::new(|| PROTO_FILE_DESCRIPTOR.get_message_by_name("q.date").unwrap());
-/// Datetime message descriptor.
-static DATETIME_MESSAGE_DESCRIPTOR: Lazy<MessageDescriptor> = Lazy::new(|| PROTO_FILE_DESCRIPTOR.get_message_by_name("q.datetime").unwrap());
-/// Timespan message descriptor.
-static TIMESPAN_MESSAGE_DESCRIPTOR: Lazy<MessageDescriptor> = Lazy::new(|| PROTO_FILE_DESCRIPTOR.get_message_by_name("q.timespan").unwrap());
-/// Minute message descriptor.
-static MINUTE_MESSAGE_DESCRIPTOR: Lazy<MessageDescriptor> = Lazy::new(|| PROTO_FILE_DESCRIPTOR.get_message_by_name("q.minute").unwrap());
-/// Second message descriptor.
-static SECOND_MESSAGE_DESCRIPTOR: Lazy<MessageDescriptor> = Lazy::new(|| PROTO_FILE_DESCRIPTOR.get_message_by_name("q.second").unwrap());
-/// Time message descriptor.
-static TIME_MESSAGE_DESCRIPTOR: Lazy<MessageDescriptor> = Lazy::new(|| PROTO_FILE_DESCRIPTOR.get_message_by_name("q.time").unwrap());
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 //>> Load Libraries
@@ -154,7 +136,7 @@ fn set_float_to_message(value: f64, field: &FieldDescriptor, dynamic_message: &m
 fn set_symbol_to_message(value: &str, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.symbol" => {
-      let mut inner = DynamicMessage::new(SYMBOL_MESSAGE_DESCRIPTOR.clone());
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("symbol", Value::String(value.to_string()));
       dynamic_message.set_field(&field, Value::Message(inner));
       Ok(())
@@ -166,7 +148,7 @@ fn set_symbol_to_message(value: &str, field: &FieldDescriptor, dynamic_message: 
 fn set_timestamp_to_message(value: i64, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.timestamp" => {
-      let mut inner = DynamicMessage::new(TIMESTAMP_MESSAGE_DESCRIPTOR.clone());
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("nanos", Value::I64(value));
       dynamic_message.set_field(&field, Value::Message(inner));
       Ok(())
@@ -178,7 +160,7 @@ fn set_timestamp_to_message(value: i64, field: &FieldDescriptor, dynamic_message
 fn set_month_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.month" => {
-      let mut inner = DynamicMessage::new(MONTH_MESSAGE_DESCRIPTOR.clone());
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("months", Value::I32(value));
       dynamic_message.set_field(&field, Value::Message(inner));
       Ok(())
@@ -190,7 +172,7 @@ fn set_month_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &m
 fn set_date_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.date" => {
-      let mut inner = DynamicMessage::new(DATE_MESSAGE_DESCRIPTOR.clone());
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("days", Value::I32(value));
       dynamic_message.set_field(&field, Value::Message(inner));
       Ok(())
@@ -202,7 +184,7 @@ fn set_date_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mu
 fn set_datetime_to_message(value: f64, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.datetime" => {
-      let mut inner = DynamicMessage::new(DATETIME_MESSAGE_DESCRIPTOR.clone());
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("days", Value::F64(value));
       dynamic_message.set_field(&field, Value::Message(inner));
       Ok(())
@@ -214,7 +196,7 @@ fn set_datetime_to_message(value: f64, field: &FieldDescriptor, dynamic_message:
 fn set_timespan_to_message(value: i64, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.timespan" => {
-      let mut inner = DynamicMessage::new(TIMESPAN_MESSAGE_DESCRIPTOR.clone());
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("nanos", Value::I64(value));
       dynamic_message.set_field(&field, Value::Message(inner));
       Ok(())
@@ -226,7 +208,7 @@ fn set_timespan_to_message(value: i64, field: &FieldDescriptor, dynamic_message:
 fn set_minute_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.minute" => {
-      let mut inner = DynamicMessage::new(MINUTE_MESSAGE_DESCRIPTOR.clone());
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("minutes", Value::I32(value));
       dynamic_message.set_field(&field, Value::Message(inner));
       Ok(())
@@ -238,7 +220,7 @@ fn set_minute_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &
 fn set_second_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.second" => {
-      let mut inner = DynamicMessage::new(SECOND_MESSAGE_DESCRIPTOR.clone());
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("seconds", Value::I32(value));
       dynamic_message.set_field(&field, Value::Message(inner));
       Ok(())
@@ -250,7 +232,7 @@ fn set_second_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &
 fn set_time_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
   match field.kind(){
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.time" => {
-      let mut inner = DynamicMessage::new(TIME_MESSAGE_DESCRIPTOR.clone());
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("millis", Value::I32(value));
       dynamic_message.set_field(&field, Value::Message(inner));
       Ok(())
@@ -334,7 +316,7 @@ fn set_symbol_list_to_message(value: &[S], field: &FieldDescriptor, dynamic_mess
   match field.kind(){
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.symbol" => {
       dynamic_message.set_field(field, Value::List(value.iter().map(|symbol|{
-        let mut inner = DynamicMessage::new(SYMBOL_MESSAGE_DESCRIPTOR.clone());
+        let mut inner = DynamicMessage::new(message_descriptor.clone());
         inner.set_field_by_name("symbol", Value::String(S_to_str(*symbol).to_string()));
         Value::Message(inner)
       }).collect()));
@@ -348,7 +330,7 @@ fn set_timestamp_list_to_message(value: &[i64], field: &FieldDescriptor, dynamic
   match field.kind(){
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.timestamp" => {
       dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(TIMESTAMP_MESSAGE_DESCRIPTOR.clone());
+        let mut inner = DynamicMessage::new(message_descriptor.clone());
         inner.set_field_by_name("nanos", Value::I64(*value));
         Value::Message(inner)
       }).collect()));
@@ -362,7 +344,7 @@ fn set_month_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_mes
   match field.kind(){
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.month" => {
       dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(MONTH_MESSAGE_DESCRIPTOR.clone());
+        let mut inner = DynamicMessage::new(message_descriptor.clone());
         inner.set_field_by_name("months", Value::I32(*value));
         Value::Message(inner)
       }).collect()));
@@ -376,7 +358,7 @@ fn set_date_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_mess
   match field.kind(){
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.date" => {
       dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(DATE_MESSAGE_DESCRIPTOR.clone());
+        let mut inner = DynamicMessage::new(message_descriptor.clone());
         inner.set_field_by_name("days", Value::I32(*value));
         Value::Message(inner)
       }).collect()));
@@ -390,7 +372,7 @@ fn set_datetime_list_to_message(value: &[f64], field: &FieldDescriptor, dynamic_
   match field.kind(){
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.datetime" => {
       dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(DATETIME_MESSAGE_DESCRIPTOR.clone());
+        let mut inner = DynamicMessage::new(message_descriptor.clone());
         inner.set_field_by_name("days", Value::F64(*value));
         Value::Message(inner)
       }).collect()));
@@ -405,7 +387,7 @@ fn set_timespan_list_to_message(value: &[i64], field: &FieldDescriptor, dynamic_
   match field.kind(){
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.timespan" => {
       dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(TIMESPAN_MESSAGE_DESCRIPTOR.clone());
+        let mut inner = DynamicMessage::new(message_descriptor.clone());
         inner.set_field_by_name("nanos", Value::I64(*value));
         Value::Message(inner)
       }).collect()));
@@ -419,7 +401,7 @@ fn set_minute_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_me
   match field.kind(){
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.minute" => {
       dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(MINUTE_MESSAGE_DESCRIPTOR.clone());
+        let mut inner = DynamicMessage::new(message_descriptor.clone());
         inner.set_field_by_name("minutes", Value::I32(*value));
         Value::Message(inner)
       }).collect()));
@@ -433,7 +415,7 @@ fn set_second_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_me
   match field.kind(){
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.second" => {
       dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(SECOND_MESSAGE_DESCRIPTOR.clone());
+        let mut inner = DynamicMessage::new(message_descriptor.clone());
         inner.set_field_by_name("seconds", Value::I32(*value));
         Value::Message(inner)
       }).collect()));
@@ -447,10 +429,23 @@ fn set_time_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_mess
   match field.kind(){
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.time" => {
       dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(TIME_MESSAGE_DESCRIPTOR.clone());
+        let mut inner = DynamicMessage::new(message_descriptor.clone());
         inner.set_field_by_name("millis", Value::I32(*value));
         Value::Message(inner)
       }).collect()));
+      Ok(())
+    },
+    _ => Err("type mismatch\0")
+  }
+}
+
+fn set_table_to_message(value: K, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+  match field.kind(){
+    Kind::Message(message_descriptor) if field.is_list() => {
+      let repeated = (0..value.len() as usize).into_iter().map(|i|{
+        Ok(Value::Message(encode_to_message(message_descriptor.clone(), value.get_row(i).unwrap())?))
+      }).collect::<Result<Vec<Value>, &'static str>>()?;
+      dynamic_message.set_field(field, Value::List(repeated));
       Ok(())
     },
     _ => Err("type mismatch\0")
@@ -501,6 +496,7 @@ fn set_value_to_message(value: K, field: &FieldDescriptor, dynamic_message: &mut
     qtype::MINUTE_LIST => set_minute_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
     qtype::SECOND_LIST => set_second_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
     qtype::TIME_LIST => set_time_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
+    qtype::TABLE => set_table_to_message(value, field, dynamic_message),
     qtype::DICTIONARY => set_dictionary_to_message(value, field, dynamic_message),
     _ => Err("unsupported type\0")
   }
@@ -993,7 +989,7 @@ fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K, compound: 
         q_list_slice[i]=decode_message(&message, message_descriptor.fields());
       });
       // Repeated protobuf message is equivalent to repeated dictionary; hence map to table
-      compound.push(unsafe{k(0, str_to_S!("{-1 _ x, ::}"), q_list, KNULL)}).unwrap();
+      compound.push(unsafe{k(0, str_to_S!("{-1 _ x, (::)}"), q_list, KNULL)}).unwrap();
     },
     _ => unimplemented!()
   }

@@ -51,3 +51,16 @@ message Outer{
   bool out_law = 1;
   Inner inner = 2;
 }
+
+// Table row.
+message Row{
+  q.symbol host = 1;
+  sint32 port = 2;
+  q.timespan running = 3;
+  string user = 4;
+}
+
+// Message containing a table.
+message Table{
+  repeated Row rows = 1;
+}

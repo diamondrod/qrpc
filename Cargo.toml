@@ -8,7 +8,7 @@ crate-type=["cdylib"]
 
 [dependencies]
 bytes = "1"
-kdbplus={version="^0.2", features=["api"]}
+kdbplus={version="^0.3", features=["api"]}
 once_cell="1"
 prost="^0.9"
 prost-types="^0.9"
