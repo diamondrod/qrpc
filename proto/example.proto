@@ -64,3 +64,10 @@ message Row{
 message Table{
   repeated Row rows = 1;
 }
+
+// Message composed of maps.
+message Mappy{
+  map<string, int32> id = 1;
+  map<int64, q.month> xday = 2; 
+  map<bool, Inner> physical = 3;
+}

@@ -2,12 +2,13 @@
 //>> Load Libraries
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 
+use std::collections::HashMap;
 use std::iter::ExactSizeIterator;
 use std::result::Result;
 use once_cell::sync::Lazy;
 use bytes::Bytes;
 use prost::Message;
-use prost_reflect::{DynamicMessage, FileDescriptor, Value, ReflectMessage, MessageDescriptor, FieldDescriptor, Kind};
+use prost_reflect::{DynamicMessage, FileDescriptor, Value, ReflectMessage, MessageDescriptor, FieldDescriptor, Kind, MapKey};
 use kdbplus::qtype;
 use kdbplus::api::*;
 use kdbplus::api::native::k;
@@ -83,421 +84,612 @@ pub extern "C" fn decode(message: K, bytes: K) -> K{
 //>> Private Functions
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 
-fn set_bool_to_message(value: bool, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
-    Kind::Bool => {
-      dynamic_message.set_field(field, Value::Bool(value));
-      Ok(())
-    },
-    _ => Err("type mismatch\0")
-  }
-}
+//%% Encode %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
 
-fn set_int_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+/// Convert underlying int value to `Value`.
+fn int_to_value(value: i32, field: &FieldDescriptor) -> Result<Value, &'static str>{
   match field.kind(){
-    Kind::Int32 | Kind::Sint32 => {
-      dynamic_message.set_field(field, Value::I32(value));
-      Ok(())
-    },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_long_to_message(value: i64, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
-    Kind::Int64 | Kind::Sint64 => {
-      dynamic_message.set_field(field, Value::I64(value));
-      Ok(())
-    },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_real_to_message(value: f32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
-    Kind::Float => {
-      dynamic_message.set_field(field, Value::F32(value));
-      Ok(())
-    },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_float_to_message(value: f64, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
-    Kind::Double => {
-      dynamic_message.set_field(field, Value::F64(value));
-      Ok(())
-    },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_symbol_to_message(value: &str, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
-    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.symbol" => {
-      let mut inner = DynamicMessage::new(message_descriptor.clone());
-      inner.set_field_by_name("symbol", Value::String(value.to_string()));
-      dynamic_message.set_field(&field, Value::Message(inner));
-      Ok(())
-    },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_timestamp_to_message(value: i64, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
-    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.timestamp" => {
-      let mut inner = DynamicMessage::new(message_descriptor.clone());
-      inner.set_field_by_name("nanos", Value::I64(value));
-      dynamic_message.set_field(&field, Value::Message(inner));
-      Ok(())
-    },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_month_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Int
+    Kind::Int32 | Kind::Sint32 => Ok(Value::I32(value)),
+    // Month
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.month" => {
       let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("months", Value::I32(value));
-      dynamic_message.set_field(&field, Value::Message(inner));
-      Ok(())
+      Ok(Value::Message(inner))
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_date_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Date
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.date" => {
       let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("days", Value::I32(value));
-      dynamic_message.set_field(&field, Value::Message(inner));
-      Ok(())
+      Ok(Value::Message(inner))
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_datetime_to_message(value: f64, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
-    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.datetime" => {
-      let mut inner = DynamicMessage::new(message_descriptor.clone());
-      inner.set_field_by_name("days", Value::F64(value));
-      dynamic_message.set_field(&field, Value::Message(inner));
-      Ok(())
-    },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_timespan_to_message(value: i64, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
-    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.timespan" => {
-      let mut inner = DynamicMessage::new(message_descriptor.clone());
-      inner.set_field_by_name("nanos", Value::I64(value));
-      dynamic_message.set_field(&field, Value::Message(inner));
-      Ok(())
-    },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_minute_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Minute
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.minute" => {
       let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("minutes", Value::I32(value));
-      dynamic_message.set_field(&field, Value::Message(inner));
-      Ok(())
+      Ok(Value::Message(inner))
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_second_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Second
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.second" => {
       let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("seconds", Value::I32(value));
-      dynamic_message.set_field(&field, Value::Message(inner));
-      Ok(())
+      Ok(Value::Message(inner))
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_time_to_message(value: i32, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Time
     Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.time" => {
       let mut inner = DynamicMessage::new(message_descriptor.clone());
       inner.set_field_by_name("millis", Value::I32(value));
-      dynamic_message.set_field(&field, Value::Message(inner));
-      Ok(())
+      Ok(Value::Message(inner))
     },
-    _ => Err("type mismatch\0")
+    // There are no other int compatible type
+    _ => Err("non-int value\0")
   }
 }
 
-fn set_bool_list_to_message(value: &[u8], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
+/// Convert underlying long value to `Value`.
+fn long_to_value(value: i64, field: &FieldDescriptor) -> Result<Value, &'static str>{
   match field.kind(){
+    // Long
+    Kind::Int64 | Kind::Sint64 => Ok(Value::I64(value)),
+    // Timestamp
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.timestamp" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("nanos", Value::I64(value));
+      Ok(Value::Message(inner))
+    },
+    // Timespan
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.timespan" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("nanos", Value::I64(value));
+      Ok(Value::Message(inner))
+    },
+    // There are no other long compatible type
+    _ => Err("non-long value\0")
+  }
+}
+
+/// Convert underlying float value to `Value`.
+fn float_to_value(value: f64, field: &FieldDescriptor) -> Result<Value, &'static str>{
+  match field.kind(){
+    // Float
+    Kind::Double => Ok(Value::F64(value)),
+    // Datetime
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.datetime" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("days", Value::F64(value));
+      Ok(Value::Message(inner))
+    },
+    // There are no other float compatible type
+    _ => Err("non-float value\0")
+  }
+}
+
+/// Convert underlying symbol value to `Value`.
+fn symbol_to_value(value: S, field: &FieldDescriptor) -> Result<Value, &'static str>{
+  match field.kind(){
+    // Datetime
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.symbol" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("symbol", Value::String(S_to_str(value).to_string()));
+      Ok(Value::Message(inner))
+    },
+    // There are no other float compatible type
+    _ => Err("non-symbol value\0")
+  }
+}
+
+/// Convert q dictionary to protobuf map type specified by a given message descriptor.
+fn k_to_map(value: K, message_descriptor: &MessageDescriptor) -> Result<Value, &'static str>{
+  // Map field equivalent of repeated map entry composed of `key = 1` and `value = 2`.
+  let keys = value.as_mut_slice::<K>()[0];
+  let values = value.as_mut_slice::<K>()[1];
+  let value_field_descriptor = message_descriptor.map_entry_value_field();
+  let mut map = HashMap::new();
+  // Match field kind and q value type
+  match message_descriptor.map_entry_key_field().kind(){
+    Kind::Bool => {
+      if keys.get_type() == qtype::BOOL_LIST{
+        match values.get_type(){
+          qtype::BOOL_LIST => {
+            keys.as_mut_slice::<G>().iter().zip(values.as_mut_slice::<G>()).for_each(|(key, value)|{
+              map.insert(MapKey::Bool(*key != 0), Value::Bool(*value != 0));
+            });
+          },
+          qtype::INT_LIST | qtype::MONTH_LIST | qtype::DATE_LIST | qtype::MINUTE_LIST | qtype::SECOND_LIST | qtype::TIME_LIST => {
+            keys.as_mut_slice::<G>().iter().zip(values.as_mut_slice::<I>()).map(|(key, value)|{
+              map.insert(MapKey::Bool(*key != 0), int_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::LONG_LIST | qtype::TIMESTAMP_LIST | qtype::TIMESPAN_LIST => {
+            keys.as_mut_slice::<G>().iter().zip(values.as_mut_slice::<J>()).map(|(key, value)|{
+              map.insert(MapKey::Bool(*key != 0), long_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::REAL_LIST => {
+            keys.as_mut_slice::<G>().iter().zip(values.as_mut_slice::<E>()).for_each(|(key, value)|{
+              map.insert(MapKey::Bool(*key != 0), Value::F32(*value));
+            });
+          },
+          qtype::FLOAT_LIST | qtype::DATETIME_LIST => {
+            keys.as_mut_slice::<G>().iter().zip(values.as_mut_slice::<F>()).map(|(key, value)|{
+              map.insert(MapKey::Bool(*key != 0), float_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::SYMBOL_LIST => {
+            keys.as_mut_slice::<G>().iter().zip(values.as_mut_slice::<S>()).map(|(key, value)|{
+              map.insert(MapKey::Bool(*key != 0), symbol_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::TABLE => {
+            // q converts list of dictionaries into table
+            // Hence table must be treated by getting each row.
+            keys.as_mut_slice::<G>().iter().enumerate().map(|(i, key)|{
+              let row = values.get_row(i).unwrap();
+              map.insert(MapKey::Bool(*key != 0), k_to_value(row, &value_field_descriptor)?);
+              decrement_reference_count(row);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          _ => {
+            keys.as_mut_slice::<G>().iter().zip(values.as_mut_slice::<K>()).map(|(key, value)|{
+              map.insert(MapKey::Bool(*key != 0), k_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          }
+        }
+      }
+      else{
+        return Err("type mismatch. expected: bool list\0")
+      }
+    },
+    Kind::Int32 | Kind::Sint32 => {
+      if keys.get_type() == qtype::INT_LIST{
+        match values.get_type(){
+          qtype::BOOL_LIST => {
+            keys.as_mut_slice::<I>().iter().zip(values.as_mut_slice::<G>()).for_each(|(key, value)|{
+              map.insert(MapKey::I32(*key), Value::Bool(*value != 0));
+            });
+          },
+          qtype::INT_LIST | qtype::MONTH_LIST | qtype::DATE_LIST | qtype::MINUTE_LIST | qtype::SECOND_LIST | qtype::TIME_LIST => {
+            keys.as_mut_slice::<I>().iter().zip(values.as_mut_slice::<I>()).map(|(key, value)|{
+              map.insert(MapKey::I32(*key), int_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::LONG_LIST | qtype::TIMESTAMP_LIST | qtype::TIMESPAN_LIST => {
+            keys.as_mut_slice::<I>().iter().zip(values.as_mut_slice::<J>()).map(|(key, value)|{
+              map.insert(MapKey::I32(*key), long_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::REAL_LIST => {
+            keys.as_mut_slice::<I>().iter().zip(values.as_mut_slice::<E>()).for_each(|(key, value)|{
+              map.insert(MapKey::I32(*key), Value::F32(*value));
+            });
+          },
+          qtype::FLOAT_LIST | qtype::DATETIME_LIST => {
+            keys.as_mut_slice::<I>().iter().zip(values.as_mut_slice::<F>()).map(|(key, value)|{
+              map.insert(MapKey::I32(*key), float_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::SYMBOL_LIST => {
+            keys.as_mut_slice::<I>().iter().zip(values.as_mut_slice::<S>()).map(|(key, value)|{
+              map.insert(MapKey::I32(*key), symbol_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::TABLE => {
+            // q converts list of dictionaries into table
+            // Hence table must be treated by getting each row.
+            keys.as_mut_slice::<I>().iter().enumerate().map(|(i, key)|{
+              let row = values.get_row(i).unwrap();
+              map.insert(MapKey::I32(*key), k_to_value(row, &value_field_descriptor)?);
+              decrement_reference_count(row);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          _ => {
+            keys.as_mut_slice::<I>().iter().zip(values.as_mut_slice::<K>()).map(|(key, value)|{
+              map.insert(MapKey::I32(*key), k_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          }
+        }
+      }
+      else{
+        return Err("type mismatch. expected: int list\0")
+      }
+    },
+    Kind::Int64 | Kind::Sint64 => {
+      if keys.get_type() == qtype::LONG_LIST{
+        match values.get_type(){
+          qtype::BOOL_LIST => {
+            keys.as_mut_slice::<J>().iter().zip(values.as_mut_slice::<G>()).for_each(|(key, value)|{
+              map.insert(MapKey::I64(*key), Value::Bool(*value != 0));
+            });
+          },
+          qtype::INT_LIST | qtype::MONTH_LIST | qtype::DATE_LIST | qtype::MINUTE_LIST | qtype::SECOND_LIST | qtype::TIME_LIST => {
+            keys.as_mut_slice::<J>().iter().zip(values.as_mut_slice::<I>()).map(|(key, value)|{
+              map.insert(MapKey::I64(*key), int_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::LONG_LIST | qtype::TIMESTAMP_LIST | qtype::TIMESPAN_LIST => {
+            keys.as_mut_slice::<J>().iter().zip(values.as_mut_slice::<J>()).map(|(key, value)|{
+              map.insert(MapKey::I64(*key), long_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::REAL_LIST => {
+            keys.as_mut_slice::<J>().iter().zip(values.as_mut_slice::<E>()).for_each(|(key, value)|{
+              map.insert(MapKey::I64(*key), Value::F32(*value));
+            });
+          },
+          qtype::FLOAT_LIST | qtype::DATETIME_LIST => {
+            keys.as_mut_slice::<J>().iter().zip(values.as_mut_slice::<F>()).map(|(key, value)|{
+              map.insert(MapKey::I64(*key), float_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::SYMBOL_LIST => {
+            keys.as_mut_slice::<J>().iter().zip(values.as_mut_slice::<S>()).map(|(key, value)|{
+              map.insert(MapKey::I64(*key), symbol_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::TABLE => {
+            // q converts list of dictionaries into table
+            // Hence table must be treated by getting each row.
+            keys.as_mut_slice::<J>().iter().enumerate().map(|(i, key)|{
+              let row = values.get_row(i).unwrap();
+              map.insert(MapKey::I64(*key), k_to_value(row, &value_field_descriptor)?);
+              decrement_reference_count(row);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          _ => {
+            keys.as_mut_slice::<J>().iter().zip(values.as_mut_slice::<K>()).map(|(key, value)|{
+              map.insert(MapKey::I64(*key), k_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          }
+        }
+      }
+      else{
+        return Err("type mismatch. expected: long list\0")
+      }
+    },
+    Kind::String => {
+      // Interpret string key as symbol list
+      if keys.get_type() == qtype::SYMBOL_LIST{
+        match values.get_type(){
+          qtype::BOOL_LIST => {
+            keys.as_mut_slice::<S>().iter().zip(values.as_mut_slice::<G>()).for_each(|(key, value)|{
+              map.insert(MapKey::String(S_to_str(*key).to_string()), Value::Bool(*value != 0));
+            });
+          },
+          qtype::INT_LIST | qtype::MONTH_LIST | qtype::DATE_LIST | qtype::MINUTE_LIST | qtype::SECOND_LIST | qtype::TIME_LIST => {
+            keys.as_mut_slice::<S>().iter().zip(values.as_mut_slice::<I>()).map(|(key, value)|{
+              map.insert(MapKey::String(S_to_str(*key).to_string()), int_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::LONG_LIST | qtype::TIMESTAMP_LIST | qtype::TIMESPAN_LIST => {
+            keys.as_mut_slice::<S>().iter().zip(values.as_mut_slice::<J>()).map(|(key, value)|{
+              map.insert(MapKey::String(S_to_str(*key).to_string()), long_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::REAL_LIST => {
+            keys.as_mut_slice::<S>().iter().zip(values.as_mut_slice::<E>()).for_each(|(key, value)|{
+              map.insert(MapKey::String(S_to_str(*key).to_string()), Value::F32(*value));
+            });
+          },
+          qtype::FLOAT_LIST | qtype::DATETIME_LIST => {
+            keys.as_mut_slice::<S>().iter().zip(values.as_mut_slice::<F>()).map(|(key, value)|{
+              map.insert(MapKey::String(S_to_str(*key).to_string()), float_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::SYMBOL_LIST => {
+            keys.as_mut_slice::<I>().iter().zip(values.as_mut_slice::<S>()).map(|(key, value)|{
+              map.insert(MapKey::I32(*key), symbol_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          qtype::TABLE => {
+            // q converts list of dictionaries into table
+            // Hence table must be treated by getting each row.
+            keys.as_mut_slice::<S>().iter().enumerate().map(|(i, key)|{
+              let row = values.get_row(i).unwrap();
+              map.insert(MapKey::String(S_to_str(*key).to_string()), k_to_value(row, &value_field_descriptor)?);
+              decrement_reference_count(row);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          },
+          _ => {
+            keys.as_mut_slice::<S>().iter().zip(values.as_mut_slice::<K>()).map(|(key, value)|{
+              map.insert(MapKey::String(S_to_str(*key).to_string()), k_to_value(*value, &value_field_descriptor)?);
+              Ok(())
+            }).collect::<Result<(), _>>()?;
+          }
+        }
+      }
+      else{
+        return Err("type mismatch. expected: symbol list\0")
+      }
+    },
+    _ => return Err("unsipported key type\0")
+  }
+  Ok(Value::Map(map))
+}
+
+/// Convert q object to `Value` specified by a given field descriptor.
+fn k_to_value(value: K, field: &FieldDescriptor) -> Result<Value, &'static str>{
+  match field.kind(){
+    // Repeated bool
     Kind::Bool if field.is_list() => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|b| Value::Bool(*b != 0)).collect()));
-      Ok(())
+      if value.get_type() == qtype::BOOL_LIST{
+        Ok(Value::List(value.as_mut_slice::<G>().iter().map(|b| Value::Bool(*b != 0)).collect()))
+      }
+      else{
+        Err("type mismatch. expected: bool list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-
-fn set_bytes_to_message(value: &[u8], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
-    Kind::String => {
-      dynamic_message.set_field(field, Value::Bytes(Bytes::copy_from_slice(value)));
-      Ok(())
+    // Bytes
+    Kind::Bytes => {
+      if value.get_type() == qtype::BYTE_LIST{
+        Ok(Value::Bytes(Bytes::copy_from_slice(value.as_mut_slice::<G>())))
+      }
+      else{
+        Err("type mismatch. expected: byte list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_int_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated int
     Kind::Int32 | Kind::Sint32 if field.is_list() => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|int| Value::I32(*int)).collect()));
-      Ok(())
+      if value.get_type() == qtype::INT_LIST{
+        Ok(Value::List(value.as_mut_slice::<I>().iter().map(|int| Value::I32(*int)).collect()))
+      }
+      else{
+        Err("type mismatch. expected: int list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_long_list_to_message(value: &[i64], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated long
     Kind::Int64 | Kind::Sint64 if field.is_list() => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|long| Value::I64(*long)).collect()));
-      Ok(())
+      if value.get_type() == qtype::LONG_LIST{
+        Ok(Value::List(value.as_mut_slice::<J>().iter().map(|long| Value::I64(*long)).collect()))
+      }
+      else{
+        Err("type mismatch. expected: long list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_real_list_to_message(value: &[f32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated real
     Kind::Float if field.is_list() => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|real| Value::F32(*real)).collect()));
-      Ok(())
+      if value.get_type() == qtype::REAL_LIST{
+        Ok(Value::List(value.as_mut_slice::<E>().iter().map(|real| Value::F32(*real)).collect()))
+      }
+      else{
+        Err("type mismatch. expected: real list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_float_list_to_message(value: &[f64], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated float
     Kind::Double if field.is_list() => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|float| Value::F64(*float)).collect()));
-      Ok(())
+      if value.get_type() == qtype::FLOAT_LIST{
+        Ok(Value::List(value.as_mut_slice::<F>().iter().map(|float| Value::F64(*float)).collect()))
+      }
+      else{
+        Err("type mismatch. expected: float list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_string_to_message(value: String, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
-    Kind::String => {
-      dynamic_message.set_field(field, Value::String(value));
-      Ok(())
-    },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_symbol_list_to_message(value: &[S], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // String
+    Kind::String => Ok(Value::String(value.get_string()?)),
+    // Repeated symbol
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.symbol" => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|symbol|{
-        let mut inner = DynamicMessage::new(message_descriptor.clone());
-        inner.set_field_by_name("symbol", Value::String(S_to_str(*symbol).to_string()));
-        Value::Message(inner)
-      }).collect()));
-      Ok(())
+      if value.get_type() == qtype::SYMBOL_LIST{
+        Ok(Value::List(value.as_mut_slice::<S>().iter().map(|symbol|{
+          let mut inner = DynamicMessage::new(message_descriptor.clone());
+          inner.set_field_by_name("symbol", Value::String(S_to_str(*symbol).to_string()));
+          Value::Message(inner)
+        }).collect()))
+      }
+      else{
+        Err("type mismatch. expected: symbol list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_timestamp_list_to_message(value: &[i64], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated timestamp
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.timestamp" => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(message_descriptor.clone());
-        inner.set_field_by_name("nanos", Value::I64(*value));
-        Value::Message(inner)
-      }).collect()));
-      Ok(())
+      if value.get_type() == qtype::TIMESTAMP_LIST{
+        Ok(Value::List(value.as_mut_slice::<J>().iter().map(|value|{
+          let mut inner = DynamicMessage::new(message_descriptor.clone());
+          inner.set_field_by_name("nanos", Value::I64(*value));
+          Value::Message(inner)
+        }).collect()))
+      }
+      else{
+        Err("type mismatch. expected: timestamp list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_month_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated month
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.month" => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(message_descriptor.clone());
-        inner.set_field_by_name("months", Value::I32(*value));
-        Value::Message(inner)
-      }).collect()));
-      Ok(())
+      if value.get_type() == qtype::MONTH_LIST{
+        Ok(Value::List(value.as_mut_slice::<I>().iter().map(|value|{
+          let mut inner = DynamicMessage::new(message_descriptor.clone());
+          inner.set_field_by_name("months", Value::I32(*value));
+          Value::Message(inner)
+        }).collect()))
+      }
+      else{
+        Err("type mismatch. expected: month list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_date_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated date
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.date" => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(message_descriptor.clone());
-        inner.set_field_by_name("days", Value::I32(*value));
-        Value::Message(inner)
-      }).collect()));
-      Ok(())
+      if value.get_type() == qtype::DATE_LIST{
+        Ok(Value::List(value.as_mut_slice::<I>().iter().map(|value|{
+          let mut inner = DynamicMessage::new(message_descriptor.clone());
+          inner.set_field_by_name("days", Value::I32(*value));
+          Value::Message(inner)
+        }).collect()))
+      }
+       else{
+        Err("type mismatch. expected: date list\0")
+       } 
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_datetime_list_to_message(value: &[f64], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated datetime
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.datetime" => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(message_descriptor.clone());
-        inner.set_field_by_name("days", Value::F64(*value));
-        Value::Message(inner)
-      }).collect()));
-      Ok(())
+      if value.get_type() == qtype::DATETIME_LIST{
+        Ok(Value::List(value.as_mut_slice::<F>().iter().map(|value|{
+          let mut inner = DynamicMessage::new(message_descriptor.clone());
+          inner.set_field_by_name("days", Value::F64(*value));
+          Value::Message(inner)
+        }).collect()))
+      }
+      else{
+        Err("type mismatch. expected: datetime list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-
-fn set_timespan_list_to_message(value: &[i64], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated timespan
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.timespan" => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(message_descriptor.clone());
-        inner.set_field_by_name("nanos", Value::I64(*value));
-        Value::Message(inner)
-      }).collect()));
-      Ok(())
+      if value.get_type() == qtype::TIMESPAN_LIST{
+        Ok(Value::List(value.as_mut_slice::<J>().iter().map(|value|{
+          let mut inner = DynamicMessage::new(message_descriptor.clone());
+          inner.set_field_by_name("nanos", Value::I64(*value));
+          Value::Message(inner)
+        }).collect()))
+      }
+      else{
+        Err("type mismatch. expected: timespan list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_minute_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated minute
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.minute" => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(message_descriptor.clone());
-        inner.set_field_by_name("minutes", Value::I32(*value));
-        Value::Message(inner)
-      }).collect()));
-      Ok(())
+      if value.get_type() == qtype::MINUTE_LIST{
+        Ok(Value::List(value.as_mut_slice::<I>().iter().map(|value|{
+          let mut inner = DynamicMessage::new(message_descriptor.clone());
+          inner.set_field_by_name("minutes", Value::I32(*value));
+          Value::Message(inner)
+        }).collect()))
+      }
+      else{
+        Err("type mismatch. expected: minute list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_second_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated second
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.second" => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(message_descriptor.clone());
-        inner.set_field_by_name("seconds", Value::I32(*value));
-        Value::Message(inner)
-      }).collect()));
-      Ok(())
+      if value.get_type() == qtype::SECOND_LIST{
+        Ok(Value::List(value.as_mut_slice::<I>().iter().map(|value|{
+          let mut inner = DynamicMessage::new(message_descriptor.clone());
+          inner.set_field_by_name("seconds", Value::I32(*value));
+          Value::Message(inner)
+        }).collect()))
+      }
+      else{
+        Err("type mismatch. expected: second list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_time_list_to_message(value: &[i32], field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated time
     Kind::Message(message_descriptor) if field.is_list() && message_descriptor.full_name() == "q.time" => {
-      dynamic_message.set_field(field, Value::List(value.iter().map(|value|{
-        let mut inner = DynamicMessage::new(message_descriptor.clone());
-        inner.set_field_by_name("millis", Value::I32(*value));
-        Value::Message(inner)
-      }).collect()));
-      Ok(())
+      if value.get_type() == qtype::TIME_LIST{
+        Ok(Value::List(value.as_mut_slice::<I>().iter().map(|value|{
+          let mut inner = DynamicMessage::new(message_descriptor.clone());
+          inner.set_field_by_name("millis", Value::I32(*value));
+          Value::Message(inner)
+        }).collect()))
+      }
+      else{
+        Err("type mismatch. expected: time list\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_table_to_message(value: K, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
+    // Repeated protobuf message
     Kind::Message(message_descriptor) if field.is_list() => {
-      let repeated = (0..value.len() as usize).into_iter().map(|i|{
-        Ok(Value::Message(encode_to_message(message_descriptor.clone(), value.get_row(i).unwrap())?))
-      }).collect::<Result<Vec<Value>, &'static str>>()?;
-      dynamic_message.set_field(field, Value::List(repeated));
-      Ok(())
+      if value.get_type() == qtype::TABLE{
+        Ok(Value::List((0..value.len() as usize).into_iter().map(|i|{
+          let row = value.get_row(i).unwrap();
+          let encoded = Value::Message(encode_to_message(message_descriptor.clone(), row)?);
+          decrement_reference_count(row);
+          Ok(encoded)
+        }).collect::<Result<Vec<Value>, &'static str>>()?))
+      }
+      else{
+        Err("type mismatch. expected: table\0")
+      }
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-fn set_dictionary_to_message(value: K, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match field.kind(){
-    Kind::Message(message_descriptor) => {
-      let encoded = encode_to_message(message_descriptor, value)?;
-      dynamic_message.set_field(field, Value::Message(encoded));
-      Ok(())
+    // Bool
+    Kind::Bool => Ok(Value::Bool(value.get_bool()?)),
+    // Int
+    Kind::Int32 | Kind::Sint32 => Ok(Value::I32(value.get_int()?)),
+    // Long
+    Kind::Int64 | Kind::Sint64 => Ok(Value::I64(value.get_long()?)),
+    // Real
+    Kind::Float => Ok(Value::F32(value.get_real()?)),
+    // Float
+    Kind::Double => Ok(Value::F64(value.get_float()?)),
+    // Symbol
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.symbol" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("symbol", Value::String(value.get_symbol()?.to_string()));
+      Ok(Value::Message(inner))
     },
-    _ => Err("type mismatch\0")
-  }
-}
-
-/// Check if q object type matches a field type.
-fn set_value_to_message(value: K, field: &FieldDescriptor, dynamic_message: &mut DynamicMessage) -> Result<(), &'static str>{
-  match value.get_type(){
-    qtype::BOOL_ATOM => set_bool_to_message(value.get_bool().unwrap(), field, dynamic_message),
-    qtype::INT_ATOM => set_int_to_message(value.get_int().unwrap(), field, dynamic_message),
-    qtype::LONG_ATOM => set_long_to_message(value.get_long().unwrap(), field, dynamic_message),
-    qtype::REAL_ATOM => set_real_to_message(value.get_real().unwrap(), field, dynamic_message),
-    qtype::FLOAT_ATOM => set_float_to_message(value.get_float().unwrap(), field, dynamic_message),
-    qtype::SYMBOL_ATOM => set_symbol_to_message(value.get_symbol().unwrap(), field, dynamic_message),
-    qtype::TIMESTAMP_ATOM => set_timestamp_to_message(value.get_long().unwrap(), field, dynamic_message),
-    qtype::MONTH_ATOM => set_month_to_message(value.get_int().unwrap(), field, dynamic_message),
-    qtype::DATE_ATOM => set_date_to_message(value.get_int().unwrap(), field, dynamic_message),
-    qtype::DATETIME_ATOM => set_datetime_to_message(value.get_float().unwrap(), field, dynamic_message),
-    qtype::TIMESPAN_ATOM => set_timespan_to_message(value.get_long().unwrap(), field, dynamic_message),
-    qtype::MINUTE_ATOM => set_minute_to_message(value.get_int().unwrap(), field, dynamic_message),
-    qtype::SECOND_ATOM => set_second_to_message(value.get_int().unwrap(), field, dynamic_message),
-    qtype::TIME_ATOM => set_time_to_message(value.get_int().unwrap(), field, dynamic_message),
-    qtype::BOOL_LIST => set_bool_list_to_message(value.as_mut_slice::<G>(), field, dynamic_message),
-    qtype::BYTE_LIST => set_bytes_to_message(value.as_mut_slice::<G>(), field, dynamic_message),
-    qtype::INT_LIST => set_int_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
-    qtype::LONG_LIST => set_long_list_to_message(value.as_mut_slice::<J>(), field, dynamic_message),
-    qtype::REAL_LIST => set_real_list_to_message(value.as_mut_slice::<E>(), field, dynamic_message),
-    qtype::FLOAT_LIST => set_float_list_to_message(value.as_mut_slice::<F>(), field, dynamic_message),
-    qtype::STRING => set_string_to_message(value.get_string().unwrap(), field, dynamic_message),
-    qtype::SYMBOL_LIST => set_symbol_list_to_message(value.as_mut_slice::<S>(), field, dynamic_message),
-    qtype::TIMESTAMP_LIST => set_timestamp_list_to_message(value.as_mut_slice::<J>(), field, dynamic_message),
-    qtype::MONTH_LIST => set_month_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
-    qtype::DATE_LIST => set_date_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
-    qtype::DATETIME_LIST => set_datetime_list_to_message(value.as_mut_slice::<F>(), field, dynamic_message),
-    qtype::TIMESPAN_LIST => set_timespan_list_to_message(value.as_mut_slice::<J>(), field, dynamic_message),
-    qtype::MINUTE_LIST => set_minute_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
-    qtype::SECOND_LIST => set_second_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
-    qtype::TIME_LIST => set_time_list_to_message(value.as_mut_slice::<I>(), field, dynamic_message),
-    qtype::TABLE => set_table_to_message(value, field, dynamic_message),
-    qtype::DICTIONARY => set_dictionary_to_message(value, field, dynamic_message),
+    // Timestamp
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.timestamp" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("nanos", Value::I64(value.get_long()?));
+      Ok(Value::Message(inner))
+    },
+    // Month
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.month" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("months", Value::I32(value.get_int()?));
+      Ok(Value::Message(inner))
+    },
+    // Date
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.date" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("days", Value::I32(value.get_int()?));
+      Ok(Value::Message(inner))
+    },
+    // Datetime
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.datetime" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("days", Value::F64(value.get_float()?));
+      Ok(Value::Message(inner))
+    },
+    // Timespan
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.timespan" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("nanos", Value::I64(value.get_long()?));
+      Ok(Value::Message(inner))
+    },
+    // Minute
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.minute" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("minutes", Value::I32(value.get_int()?));
+      Ok(Value::Message(inner))
+    },
+    // Second
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.second" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("seconds", Value::I32(value.get_int()?));
+      Ok(Value::Message(inner))
+    },
+    // Time
+    Kind::Message(message_descriptor) if message_descriptor.full_name() == "q.time" => {
+      let mut inner = DynamicMessage::new(message_descriptor.clone());
+      inner.set_field_by_name("millis", Value::I32(value.get_int()?));
+      Ok(Value::Message(inner))
+    },
+    // Map
+    Kind::Message(message_descriptor) if field.is_map() => {
+      // Map field equivalent of repeated map entry composed of `key = 1` and `value = 2`.
+      k_to_map(value, &message_descriptor)
+    },
+    // Protobuf message
+    Kind::Message(message_descriptor) => Ok(Value::Message(encode_to_message(message_descriptor, value)?)),
     _ => Err("unsupported type\0")
   }
 }
@@ -506,132 +698,121 @@ fn set_value_to_message(value: K, field: &FieldDescriptor, dynamic_message: &mut
 fn encode_to_message(message_descriptor: MessageDescriptor, data: K) -> Result<DynamicMessage, &'static str>{
   let mut dynamic_message = DynamicMessage::new(message_descriptor);
   let keys = data.as_mut_slice::<K>()[0].as_mut_slice::<S>();
-  let values_ = data.as_mut_slice::<K>()[1];
-  match values_.get_type(){
+  let values = data.as_mut_slice::<K>()[1];
+  match values.get_type(){
     qtype::BOOL_LIST => {
-      let values = values_.as_mut_slice::<G>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<G>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_bool_to_message(*value != 0, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, Value::Bool(*value != 0));
         }             
       }
     },
     qtype::INT_LIST => {
-      let values = values_.as_mut_slice::<I>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<I>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_int_to_message(*value, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, int_to_value(*value, &field)?);
         }             
       }
     },
     qtype::LONG_LIST => {
-      let values = values_.as_mut_slice::<J>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<J>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_long_to_message(*value, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, long_to_value(*value, &field)?);
         }             
       }
     },
     qtype::REAL_LIST => {
-      let values = values_.as_mut_slice::<E>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<E>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_real_to_message(*value, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, Value::F32(*value));
         }             
       }
     },
     qtype::FLOAT_LIST => {
-      let values = values_.as_mut_slice::<F>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<F>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_float_to_message(*value, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, float_to_value(*value, &field)?);
         }             
       }
     },
     qtype::SYMBOL_LIST => {
-      let values = values_.as_mut_slice::<S>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<S>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_symbol_to_message(S_to_str(*value), &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, symbol_to_value(*value, &field)?);
         }             
       }
     },
     qtype::TIMESTAMP_LIST => {
-      let values = values_.as_mut_slice::<J>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<J>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_timestamp_to_message(*value, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, long_to_value(*value, &field)?);
         }             
       }
     },
     qtype::MONTH_LIST => {
-      let values = values_.as_mut_slice::<I>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<I>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_month_to_message(*value, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, int_to_value(*value, &field)?);
         }             
       }
     },
     qtype::DATE_LIST => {
-      let values = values_.as_mut_slice::<I>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<I>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_date_to_message(*value, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, int_to_value(*value, &field)?);
         }             
       }
     },
     qtype::DATETIME_LIST => {
-      let values = values_.as_mut_slice::<F>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<F>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_datetime_to_message(*value, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, float_to_value(*value, &field)?);
         }             
       }
     },
     qtype::TIMESPAN_LIST => {
-      let values = values_.as_mut_slice::<J>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<J>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_timespan_to_message(*value, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, long_to_value(*value, &field)?);
         }             
       }
     },
     qtype::MINUTE_LIST => {
-      let values = values_.as_mut_slice::<I>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<I>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_minute_to_message(*value, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, int_to_value(*value, &field)?);
         }             
       }
     },
     qtype::SECOND_LIST => {
-      let values = values_.as_mut_slice::<I>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<I>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_second_to_message(*value, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, int_to_value(*value, &field)?);
         }             
       }
     },
     qtype::TIME_LIST => {
-      let values = values_.as_mut_slice::<I>();
-      for (key, value) in keys.iter().zip(values){
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<I>()){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
-          set_time_to_message(*value, &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, int_to_value(*value, &field)?);
         }             
       }
     },
     qtype::COMPOUND_LIST => {
-      let values = values_.as_mut_slice::<K>();
+      let values = values.as_mut_slice::<K>();
       for i in 0 .. keys.len(){
         if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(keys[i])){
-          set_value_to_message(values[i], &field, &mut dynamic_message)?;
+          dynamic_message.set_field(&field, k_to_value(values[i], &field)?);
         }
       }
     },
-    _ => unimplemented!()
+    // There are no other list type
+    _ => unreachable!()
   }
   Ok(dynamic_message)
 }
+
+//%% Decode %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
 
 /// Decode list of values as q list object and push it to an existing list.
 fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K, compound: &mut K, list_type: &mut i8){
@@ -995,6 +1176,657 @@ fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K, compound: 
   }
 }
 
+/// Decode map of bool key and int compatible value into q dictionary.
+fn decode_map_inner_bool_int(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
+  let keys = new_list(qtype::BOOL_LIST, map.len() as i64);
+  let values = new_list(value_type, map.len() as i64);
+  let keys_slice = keys.as_mut_slice::<G>();
+  let values_slice = values.as_mut_slice::<I>();
+  match value_type{
+    qtype::INT_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_i32().unwrap();
+      });
+    },
+    qtype::MONTH_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("months").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::DATE_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("days").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::MINUTE_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("minutes").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::SECOND_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("seconds").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::TIME_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("millis").unwrap().as_i32().unwrap();
+      });
+    },
+    // There are no other int compatible type
+    _ => unreachable!()
+  }
+  new_dictionary(keys, values)
+}
+
+/// Decode map of bool key and long compatible value into q dictionary.
+fn decode_map_inner_bool_long(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
+  let keys = new_list(qtype::BOOL_LIST, map.len() as i64);
+  let values = new_list(value_type, map.len() as i64);
+  let keys_slice = keys.as_mut_slice::<G>();
+  let values_slice = values.as_mut_slice::<J>();
+  match value_type{
+    qtype::LONG_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_i64().unwrap();
+      });
+    },
+    qtype::TIMESTAMP_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("nanos").unwrap().as_i64().unwrap();
+      });
+    },
+    qtype::TIMESPAN_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("nanos").unwrap().as_i64().unwrap();
+      });
+    },
+    // There are no other long compatible type
+    _ => unreachable!()
+  }
+  new_dictionary(keys, values)
+}
+
+/// Decode map of bool key and float compatible value into q dictionary.
+fn decode_map_inner_bool_float(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
+  let keys = new_list(qtype::BOOL_LIST, map.len() as i64);
+  let values = new_list(value_type, map.len() as i64);
+  let keys_slice = keys.as_mut_slice::<G>();
+  let values_slice = values.as_mut_slice::<F>();
+  match value_type{
+    qtype::FLOAT_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_f64().unwrap();
+      });
+    },
+    qtype::DATETIME_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("days").unwrap().as_f64().unwrap();
+      });
+    },
+    // There are no other int compatible type
+    _ => unreachable!()
+  }
+  new_dictionary(keys, values)
+}
+
+/// Decode map of int key and int compatible value into q dictionary.
+fn decode_map_inner_int_int(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
+  let keys = new_list(qtype::INT_LIST, map.len() as i64);
+  let values = new_list(value_type, map.len() as i64);
+  let keys_slice = keys.as_mut_slice::<I>();
+  let values_slice = values.as_mut_slice::<I>();
+  match value_type{
+    qtype::INT_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_i32().unwrap();
+      });
+    },
+    qtype::MONTH_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("months").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::DATE_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("days").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::MINUTE_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("minutes").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::SECOND_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("seconds").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::TIME_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("millis").unwrap().as_i32().unwrap();
+      });
+    },
+    // There are no other int compatible type
+    _ => unreachable!()
+  }
+  new_dictionary(keys, values)
+}
+
+/// Decode map of int key and long compatible value into q dictionary.
+fn decode_map_inner_int_long(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
+  let keys = new_list(qtype::INT_LIST, map.len() as i64);
+  let values = new_list(value_type, map.len() as i64);
+  let keys_slice = keys.as_mut_slice::<I>();
+  let values_slice = values.as_mut_slice::<J>();
+  match value_type{
+    qtype::LONG_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_i64().unwrap();
+      });
+    },
+    qtype::TIMESTAMP_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("nanos").unwrap().as_i64().unwrap();
+      });
+    },
+    qtype::TIMESPAN_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("nanos").unwrap().as_i64().unwrap();
+      });
+    },
+    // There are no other long compatible type
+    _ => unreachable!()
+  }
+  new_dictionary(keys, values)
+}
+
+/// Decode map of int key and float compatible value into q dictionary.
+fn decode_map_inner_int_float(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
+  let keys = new_list(qtype::INT_LIST, map.len() as i64);
+  let values = new_list(value_type, map.len() as i64);
+  let keys_slice = keys.as_mut_slice::<I>();
+  let values_slice = values.as_mut_slice::<F>();
+  match value_type{
+    qtype::FLOAT_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_f64().unwrap();
+      });
+    },
+    qtype::DATETIME_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("days").unwrap().as_f64().unwrap();
+      });
+    },
+    // There are no other int compatible type
+    _ => unreachable!()
+  }
+  new_dictionary(keys, values)
+}
+
+
+/// Decode map of long key and int compatible value into q dictionary.
+fn decode_map_inner_long_int(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
+  let keys = new_list(qtype::LONG_LIST, map.len() as i64);
+  let values = new_list(value_type, map.len() as i64);
+  let keys_slice = keys.as_mut_slice::<J>();
+  let values_slice = values.as_mut_slice::<I>();
+  match value_type{
+    qtype::INT_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_i32().unwrap();
+      });
+    },
+    qtype::MONTH_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("months").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::DATE_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("days").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::MINUTE_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("minutes").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::SECOND_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("seconds").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::TIME_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("millis").unwrap().as_i32().unwrap();
+      });
+    },
+    // There are no other int compatible type
+    _ => unreachable!()
+  }
+  new_dictionary(keys, values)
+}
+
+/// Decode map of long key and long compatible value into q dictionary.
+fn decode_map_inner_long_long(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
+  let keys = new_list(qtype::LONG_LIST, map.len() as i64);
+  let values = new_list(value_type, map.len() as i64);
+  let keys_slice = keys.as_mut_slice::<J>();
+  let values_slice = values.as_mut_slice::<J>();
+  match value_type{
+    qtype::LONG_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_i64().unwrap();
+      });
+    },
+    qtype::TIMESTAMP_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("nanos").unwrap().as_i64().unwrap();
+      });
+    },
+    qtype::TIMESPAN_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("nanos").unwrap().as_i64().unwrap();
+      });
+    },
+    // There are no other long compatible type
+    _ => unreachable!()
+  }
+  new_dictionary(keys, values)
+}
+
+/// Decode map of long key and float compatible value into q dictionary.
+fn decode_map_inner_long_float(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
+  let keys = new_list(qtype::LONG_LIST, map.len() as i64);
+  let values = new_list(value_type, map.len() as i64);
+  let keys_slice = keys.as_mut_slice::<J>();
+  let values_slice = values.as_mut_slice::<F>();
+  match value_type{
+    qtype::FLOAT_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_f64().unwrap();
+      });
+    },
+    qtype::DATETIME_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("days").unwrap().as_f64().unwrap();
+      });
+    },
+    // There are no other int compatible type
+    _ => unreachable!()
+  }
+  new_dictionary(keys, values)
+}
+
+/// Decode map of symbol key and int compatible value into q dictionary.
+fn decode_map_inner_symbol_int(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
+  let keys = new_list(qtype::SYMBOL_LIST, map.len() as i64);
+  let values = new_list(value_type, map.len() as i64);
+  let keys_slice = keys.as_mut_slice::<S>();
+  let values_slice = values.as_mut_slice::<I>();
+  match value_type{
+    qtype::INT_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_i32().unwrap();
+      });
+    },
+    qtype::MONTH_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("months").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::DATE_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("days").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::MINUTE_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("minutes").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::SECOND_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("seconds").unwrap().as_i32().unwrap();
+      });
+    },
+    qtype::TIME_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("millis").unwrap().as_i32().unwrap();
+      });
+    },
+    // There are no other int compatible type
+    _ => unreachable!()
+  }
+  new_dictionary(keys, values)
+}
+
+/// Decode map of symbol key and long compatible value into q dictionary.
+fn decode_map_inner_symbol_long(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
+  let keys = new_list(qtype::SYMBOL_LIST, map.len() as i64);
+  let values = new_list(value_type, map.len() as i64);
+  let keys_slice = keys.as_mut_slice::<S>();
+  let values_slice = values.as_mut_slice::<J>();
+  match value_type{
+    qtype::LONG_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_i64().unwrap();
+      });
+    },
+    qtype::TIMESTAMP_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("nanos").unwrap().as_i64().unwrap();
+      });
+    },
+    qtype::TIMESPAN_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("nanos").unwrap().as_i64().unwrap();
+      });
+    },
+    // There are no other long compatible type
+    _ => unreachable!()
+  }
+  new_dictionary(keys, values)
+}
+
+/// Decode map of symbol key and float compatible value into q dictionary.
+fn decode_map_inner_symbol_float(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
+  let keys = new_list(qtype::SYMBOL_LIST, map.len() as i64);
+  let values = new_list(value_type, map.len() as i64);
+  let keys_slice = keys.as_mut_slice::<S>();
+  let values_slice = values.as_mut_slice::<F>();
+  match value_type{
+    qtype::FLOAT_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_f64().unwrap();
+      });
+    },
+    qtype::DATETIME_LIST => {
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_message().unwrap().get_field_by_name("days").unwrap().as_f64().unwrap();
+      });
+    },
+    // There are no other int compatible type
+    _ => unreachable!()
+  }
+  new_dictionary(keys, values)
+}
+
+/// Convert protobuf map into q dictionary.
+fn decode_map(map: &HashMap<MapKey, Value>, field: &FieldDescriptor) -> K{
+  let kind = field.kind();
+  let message_descriptor = kind.as_message().unwrap();
+  let value_kind =  message_descriptor.map_entry_value_field().kind();
+  match (message_descriptor.map_entry_key_field().kind(), value_kind){
+    (Kind::Bool, Kind::Bool) => {
+      let keys = new_list(qtype::BOOL_LIST, map.len() as i64);
+      let values = new_list(qtype::BOOL_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<G>();
+      let values_slice = values.as_mut_slice::<G>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_bool().unwrap() as u8;
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::Bool, Kind::Int32 | Kind::Sint32) => decode_map_inner_bool_int(map, qtype::INT_LIST),
+    (Kind::Bool, Kind::Int64 | Kind::Sint64) => decode_map_inner_bool_long(map, qtype::LONG_LIST),
+    (Kind::Bool, Kind::Float) => {
+      let keys = new_list(qtype::BOOL_LIST, map.len() as i64);
+      let values = new_list(qtype::REAL_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<G>();
+      let values_slice = values.as_mut_slice::<E>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = value.as_f32().unwrap();
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::Bool, Kind::Double) => decode_map_inner_bool_float(map, qtype::FLOAT_LIST),
+    (Kind::Bool, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.symbol" => {
+      let keys = new_list(qtype::BOOL_LIST, map.len() as i64);
+      let values = new_list(qtype::SYMBOL_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<G>();
+      let values_slice = values.as_mut_slice::<S>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = enumerate(str_to_S!(value.as_message().unwrap().get_field_by_name("symbol").unwrap().as_str().unwrap()));
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::Bool, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.timestamp" => decode_map_inner_bool_long(map, qtype::TIMESTAMP_LIST),
+    (Kind::Bool, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.month" => decode_map_inner_bool_int(map, qtype::MONTH_LIST),
+    (Kind::Bool, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.date" => decode_map_inner_bool_int(map, qtype::DATE_LIST),
+    (Kind::Bool, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.datetime" => decode_map_inner_bool_float(map, qtype::DATETIME_LIST),
+    (Kind::Bool, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.timespan" => decode_map_inner_bool_long(map, qtype::TIMESPAN_LIST),
+    (Kind::Bool, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.minute" => decode_map_inner_bool_int(map, qtype::MINUTE_LIST),
+    (Kind::Bool, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.second" => decode_map_inner_bool_int(map, qtype::SECOND_LIST),
+    (Kind::Bool, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.time" => decode_map_inner_bool_int(map, qtype::TIME_LIST),
+    (Kind::Bool, Kind::Message(inner_message_descriptor)) => {
+      let keys = new_list(qtype::BOOL_LIST, map.len() as i64);
+      let values = new_list(qtype::COMPOUND_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<G>();
+      let values_slice = values.as_mut_slice::<K>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_bool().unwrap() as u8;
+        values_slice[i] = decode_message(value.as_message().unwrap(), inner_message_descriptor.fields());
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::Int32 | Kind::Sint32, Kind::Bool) => {
+      let keys = new_list(qtype::INT_LIST, map.len() as i64);
+      let values = new_list(qtype::BOOL_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<I>();
+      let values_slice = values.as_mut_slice::<G>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_bool().unwrap() as u8;
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::Int32 | Kind::Sint32, Kind::Int32 | Kind::Sint32) => decode_map_inner_int_int(map, qtype::INT_LIST),
+    (Kind::Int32 | Kind::Sint32, Kind::Int64 | Kind::Sint64) => decode_map_inner_int_long(map, qtype::LONG_LIST),
+    (Kind::Int32 | Kind::Sint32, Kind::Float) => {
+      let keys = new_list(qtype::INT_LIST, map.len() as i64);
+      let values = new_list(qtype::REAL_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<I>();
+      let values_slice = values.as_mut_slice::<E>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = value.as_f32().unwrap();
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::Int32 | Kind::Sint32, Kind::Double) => decode_map_inner_int_float(map, qtype::FLOAT_LIST),
+    (Kind::Int32 | Kind::Sint32, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.symbol" => {
+      let keys = new_list(qtype::INT_LIST, map.len() as i64);
+      let values = new_list(qtype::SYMBOL_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<I>();
+      let values_slice = values.as_mut_slice::<S>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = enumerate(str_to_S!(value.as_message().unwrap().get_field_by_name("symbol").unwrap().as_str().unwrap()));
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::Int32 | Kind::Sint32, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.timestamp" => decode_map_inner_int_long(map, qtype::TIMESTAMP_LIST),
+    (Kind::Int32 | Kind::Sint32, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.month" => decode_map_inner_int_int(map, qtype::MONTH_LIST),
+    (Kind::Int32 | Kind::Sint32, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.date" => decode_map_inner_int_int(map, qtype::DATE_LIST),
+    (Kind::Int32 | Kind::Sint32, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.datetime" => decode_map_inner_int_float(map, qtype::DATETIME_LIST),
+    (Kind::Int32 | Kind::Sint32, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.timespan" => decode_map_inner_int_long(map, qtype::TIMESPAN_LIST),
+    (Kind::Int32 | Kind::Sint32, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.minute" => decode_map_inner_int_int(map, qtype::MINUTE_LIST),
+    (Kind::Int32 | Kind::Sint32, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.second" => decode_map_inner_int_int(map, qtype::SECOND_LIST),
+    (Kind::Int32 | Kind::Sint32, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.time" => decode_map_inner_int_int(map, qtype::TIME_LIST),
+    (Kind::Int32 | Kind::Sint32, Kind::Message(inner_message_descriptor)) => {
+      let keys = new_list(qtype::INT_LIST, map.len() as i64);
+      let values = new_list(qtype::COMPOUND_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<I>();
+      let values_slice = values.as_mut_slice::<K>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i32().unwrap();
+        values_slice[i] = decode_message(value.as_message().unwrap(), inner_message_descriptor.fields());
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::Int64 | Kind::Sint64, Kind::Bool) => {
+      let keys = new_list(qtype::LONG_LIST, map.len() as i64);
+      let values = new_list(qtype::BOOL_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<J>();
+      let values_slice = values.as_mut_slice::<G>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_bool().unwrap() as u8;
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::Int64 | Kind::Sint64, Kind::Int32 | Kind::Sint32) => decode_map_inner_long_int(map, qtype::INT_LIST),
+    (Kind::Int64 | Kind::Sint64, Kind::Int64 | Kind::Sint64) => decode_map_inner_long_long(map, qtype::LONG_LIST),
+    (Kind::Int64 | Kind::Sint64, Kind::Float) => {
+      let keys = new_list(qtype::LONG_LIST, map.len() as i64);
+      let values = new_list(qtype::REAL_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<J>();
+      let values_slice = values.as_mut_slice::<E>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = value.as_f32().unwrap();
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::Int64 | Kind::Sint64, Kind::Double) => decode_map_inner_long_float(map, qtype::FLOAT_LIST),
+    (Kind::Int64 | Kind::Sint64, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.symbol" => {
+      let keys = new_list(qtype::LONG_LIST, map.len() as i64);
+      let values = new_list(qtype::SYMBOL_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<J>();
+      let values_slice = values.as_mut_slice::<S>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = enumerate(str_to_S!(value.as_message().unwrap().get_field_by_name("symbol").unwrap().as_str().unwrap()));
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::Int64 | Kind::Sint64, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.timestamp" => decode_map_inner_long_long(map, qtype::TIMESTAMP_LIST),
+    (Kind::Int64 | Kind::Sint64, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.month" => decode_map_inner_long_int(map, qtype::MONTH_LIST),
+    (Kind::Int64 | Kind::Sint64, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.date" => decode_map_inner_long_int(map, qtype::DATE_LIST),
+    (Kind::Int64 | Kind::Sint64, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.datetime" => decode_map_inner_long_float(map, qtype::DATETIME_LIST),
+    (Kind::Int64 | Kind::Sint64, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.timespan" => decode_map_inner_long_long(map, qtype::TIMESPAN_LIST),
+    (Kind::Int64 | Kind::Sint64, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.minute" => decode_map_inner_long_int(map, qtype::MINUTE_LIST),
+    (Kind::Int64 | Kind::Sint64, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.second" => decode_map_inner_long_int(map, qtype::SECOND_LIST),
+    (Kind::Int64 | Kind::Sint64, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.time" => decode_map_inner_long_int(map, qtype::TIME_LIST),
+    (Kind::Int64 | Kind::Sint64, Kind::Message(inner_message_descriptor)) => {
+      let keys = new_list(qtype::LONG_LIST, map.len() as i64);
+      let values = new_list(qtype::COMPOUND_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<J>();
+      let values_slice = values.as_mut_slice::<K>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = key.as_i64().unwrap();
+        values_slice[i] = decode_message(value.as_message().unwrap(), inner_message_descriptor.fields());
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::String, Kind::Bool) => {
+      let keys = new_list(qtype::SYMBOL_LIST, map.len() as i64);
+      let values = new_list(qtype::BOOL_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<S>();
+      let values_slice = values.as_mut_slice::<G>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_bool().unwrap() as u8;
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::String, Kind::Int32 | Kind::Sint32) => decode_map_inner_symbol_int(map, qtype::INT_LIST),
+    (Kind::String, Kind::Int64 | Kind::Sint64) => decode_map_inner_symbol_long(map, qtype::LONG_LIST),
+    (Kind::String, Kind::Float) => {
+      let keys = new_list(qtype::SYMBOL_LIST, map.len() as i64);
+      let values = new_list(qtype::REAL_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<S>();
+      let values_slice = values.as_mut_slice::<E>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = value.as_f32().unwrap();
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::String, Kind::Double) => decode_map_inner_symbol_float(map, qtype::FLOAT_LIST),
+    (Kind::String, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.symbol" => {
+      let keys = new_list(qtype::SYMBOL_LIST, map.len() as i64);
+      let values = new_list(qtype::SYMBOL_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<S>();
+      let values_slice = values.as_mut_slice::<S>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = enumerate(str_to_S!(value.as_message().unwrap().get_field_by_name("symbol").unwrap().as_str().unwrap()));
+      });
+      new_dictionary(keys, values)
+    },
+    (Kind::String, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.timestamp" => decode_map_inner_symbol_long(map, qtype::TIMESTAMP_LIST),
+    (Kind::String, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.month" => decode_map_inner_symbol_int(map, qtype::MONTH_LIST),
+    (Kind::String, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.date" => decode_map_inner_symbol_int(map, qtype::DATE_LIST),
+    (Kind::String, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.datetime" => decode_map_inner_symbol_float(map, qtype::DATETIME_LIST),
+    (Kind::String, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.timespan" => decode_map_inner_symbol_long(map, qtype::TIMESPAN_LIST),
+    (Kind::String, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.minute" => decode_map_inner_symbol_int(map, qtype::MINUTE_LIST),
+    (Kind::String, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.second" => decode_map_inner_symbol_int(map, qtype::SECOND_LIST),
+    (Kind::String, Kind::Message(inner_message_descriptor)) if inner_message_descriptor.full_name() == "q.time" => decode_map_inner_symbol_int(map, qtype::TIME_LIST),
+    (Kind::String, Kind::Message(inner_message_descriptor)) => {
+      let keys = new_list(qtype::SYMBOL_LIST, map.len() as i64);
+      let values = new_list(qtype::COMPOUND_LIST, map.len() as i64);
+      let keys_slice = keys.as_mut_slice::<S>();
+      let values_slice = values.as_mut_slice::<K>();
+      map.iter().enumerate().for_each(|(i, (key, value))|{
+        keys_slice[i] = enumerate(str_to_S!(key.as_str().unwrap()));
+        values_slice[i] = decode_message(value.as_message().unwrap(), inner_message_descriptor.fields());
+      });
+      new_dictionary(keys, values)
+    },
+    _ => new_error("unsupported type")
+  }
+}
+
 /// Convert dynamic message into q dictionary.
 fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterator::<Item = FieldDescriptor>) -> K{
   let keys = new_list(qtype::SYMBOL_LIST, fields.len() as i64);
@@ -1008,6 +1840,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
     keys_slice[i] = enumerate(str_to_S!(field.name()));
     // Decode value
     if let Some(v_) = dynamic_message.get_field_by_name(field.name()){
+      // Some value is set to the field
       match v_.as_ref(){
         Value::Bool(v) => {
           // Bool
@@ -1347,20 +2180,39 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
           }
         },
         Value::List(list) => {
+          // List
           decode_list(list, &field, simple, &mut compound, &mut list_type);
         },
+        Value::Map(map) => {
+          // Map
+          match list_type{
+            qtype::NULL =>{
+              list_type = qtype::COMPOUND_LIST;
+              compound = new_list(qtype::COMPOUND_LIST, 0);
+            },
+            qtype::COMPOUND_LIST => (),
+            _ => {
+              // Move to compound list
+              list_type = qtype::COMPOUND_LIST;
+              compound = simple_to_compound(simple);
+            }
+          }
+          compound.push(decode_map(map, &field)).unwrap();
+        }
         Value::Message(message) => {
           // Protobuf message
           let message_descriptor = message.descriptor();
           let inner_fields =message_descriptor.fields();
           let v = decode_message(message, inner_fields);
           // Move to compound list
-          list_type = qtype::COMPOUND_LIST;
           match list_type{
             qtype::NULL =>{
+              list_type = qtype::COMPOUND_LIST;
               compound = new_list(qtype::COMPOUND_LIST, 0);
             },
+            qtype::COMPOUND_LIST => (),
             _ => {
+              list_type = qtype::COMPOUND_LIST;
               compound = simple_to_compound(simple);
             }
           }
@@ -1370,13 +2222,16 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
       }
     }
     else{
+      // No value is set to the field. Parse as null.
       // Move to compound list
-      list_type = qtype::COMPOUND_LIST;
       match list_type{
         qtype::NULL =>{
+          list_type = qtype::COMPOUND_LIST;
           compound = new_list(qtype::COMPOUND_LIST, 0);
         },
+        qtype::COMPOUND_LIST => (),
         _ => {
+          list_type = qtype::COMPOUND_LIST;
           compound = simple_to_compound(simple);
         }
       }

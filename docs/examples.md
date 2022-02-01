@@ -69,6 +69,13 @@ message Row{
 message Table{
   repeated Row rows = 1;
 }
+
+// Message composed of maps.
+message Mappy{
+  map<string, int32> id = 1;
+  map<int64, q.month> xday = 2; 
+  map<bool, Inner> physical = 3;
+}
 ```
 
 ## Atom Example
@@ -138,3 +145,10 @@ shinjuku.com  10000 0D01:36:15.379632000 "Daniel"
 ikebukuro.com 12000 2D15:37:22.638791000 "Ezekiel"
 ```
 
+## Map Example
+
+```q
+q)people: `id`xday`physical!(`Joshua`Mark`John!7 2 4i; 1 2 3!1978.06 2012.08 2018.02m; 10b!(`inner_muscle`inner_mind!(3000; `blue); `inner_muscle`inner_mind!(4000; `happy)))
+q)encoded: .grpc.encode[`example.Mappy; people]
+q).grpc.decode[`example.Mappy; encoded]
+```
