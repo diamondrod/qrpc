@@ -147,8 +147,13 @@ ikebukuro.com 12000 2D15:37:22.638791000 "Ezekiel"
 
 ## Map Example
 
+*Note: Map field does not save the order of keys.*
+
 ```q
 q)people: `id`xday`physical!(`Joshua`Mark`John!7 2 4i; 1 2 3!1978.06 2012.08 2018.02m; 10b!(`inner_muscle`inner_mind!(3000; `blue); `inner_muscle`inner_mind!(4000; `happy)))
 q)encoded: .grpc.encode[`example.Mappy; people]
 q).grpc.decode[`example.Mappy; encoded]
+id      | `Joshua`John`Mark!7 4 2i
+xday    | 1 3 2!1978.06 2018.02 2012.08m
+physical| 10b!+`inner_muscle`inner_mind!(3000 4000;`blue`happy)
 ```
