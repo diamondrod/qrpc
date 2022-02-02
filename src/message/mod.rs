@@ -570,416 +570,418 @@ fn encode_to_message(message_descriptor: MessageDescriptor, data: K) -> Result<D
 //%% Decode %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
 
 /// Convert dynamic message into q dictionary.
-fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterator::<Item = FieldDescriptor>) -> K{
-  let keys = new_list(qtype::SYMBOL_LIST, fields.len() as i64);
-  let keys_slice = keys.as_mut_slice::<S>();
+fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterator<Item = FieldDescriptor>) -> K{
+  let mut keys = new_list(qtype::SYMBOL_LIST, 0);
   let mut simple = KNULL;
   let mut compound = KNULL;
   let mut list_type = qtype::NULL;
   let mut i = 0;
-  fields.for_each(|field|{
-    // Store field name as a key
-    keys_slice[i] = enumerate(str_to_S!(field.name()));
-    // Decode value
-    if let Some(v_) = dynamic_message.get_field_by_name(field.name()){
-      // Some value is set to the field
-      match v_.as_ref(){
-        Value::Bool(v) => {
-          // Bool
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::BOOL_LIST;
-              simple = new_list(qtype::BOOL_LIST, 0);
-              simple.push_raw(*v).unwrap();
-            },
-            qtype::BOOL_LIST => {
-              simple.push_raw(*v).unwrap();
-            },
-            qtype::COMPOUND_LIST => {
-              compound.push(new_bool(*v as i32)).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_bool(*v as i32)).unwrap();
+  fields.into_iter().for_each(|field|{
+    if dynamic_message.has_field(&field){
+      // Oneof field is populated.
+      // Store field name as a key
+      keys.push_symbol(field.name()).unwrap();
+      // Decode value
+      if let Some(v_) = dynamic_message.get_field_by_name(field.name()){
+        // Some value is set to the field
+        match v_.as_ref(){
+          Value::Bool(v) => {
+            // Bool
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::BOOL_LIST;
+                simple = new_list(qtype::BOOL_LIST, 0);
+                simple.push_raw(*v).unwrap();
+              },
+              qtype::BOOL_LIST => {
+                simple.push_raw(*v).unwrap();
+              },
+              qtype::COMPOUND_LIST => {
+                compound.push(new_bool(*v as i32)).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_bool(*v as i32)).unwrap();
+              }
             }
+          },
+          Value::I32(v) => {
+            // Int
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::INT_LIST;
+                simple = new_list(qtype::INT_LIST, 0);
+                simple.push_raw(*v).unwrap();
+              },
+              qtype::INT_LIST => {
+                simple.push_raw(*v).unwrap();
+              },
+              qtype::COMPOUND_LIST => {
+                compound.push(new_int(*v)).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_int(*v)).unwrap();
+              }
+            }
+          },
+          Value::I64(v) => {
+            // Long
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::LONG_LIST;
+                simple = new_list(qtype::LONG_LIST, 0);
+                simple.push_raw(*v).unwrap();
+              },
+              qtype::LONG_LIST => {
+                simple.push_raw(*v).unwrap();
+              },
+              qtype::COMPOUND_LIST => {
+                compound.push(new_long(*v)).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_long(*v)).unwrap();
+              }
+            }
+          },
+          Value::F32(v) => {
+            // Real
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::REAL_LIST;
+                simple = new_list(qtype::REAL_LIST, 0);
+                simple.push_raw(*v as f64).unwrap();
+              },
+              qtype::REAL_LIST => {
+                simple.push_raw(*v as f64).unwrap();
+              },
+              qtype::COMPOUND_LIST => {
+                compound.push(new_real(*v as f64)).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_real(*v as f64)).unwrap();
+              }
+            }
+          },
+          Value::F64(v) => {
+            // Float
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::FLOAT_LIST;
+                simple = new_list(qtype::FLOAT_LIST, 0);
+                simple.push_raw(*v).unwrap();
+              },
+              qtype::FLOAT_LIST => {
+                simple.push_raw(*v).unwrap();
+              },
+              qtype::COMPOUND_LIST => {
+                compound.push(new_float(*v)).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_float(*v)).unwrap();
+              }
+            }
+          },
+          Value::String(v) => {
+            // String
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::COMPOUND_LIST;
+                compound = new_list(qtype::COMPOUND_LIST, 0);
+                compound.push(new_string(v)).unwrap();
+              },
+              qtype::COMPOUND_LIST => {
+                compound.push(new_string(v)).unwrap();
+              },
+              _ => {
+                // Simple list or null
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_string(v)).unwrap();
+              }
+            }
+          },
+          Value::Message(message) if message.descriptor().full_name() == "q.symbol" => {
+            // Symbol
+            let v = message.get_field_by_name("symbol").unwrap();
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::SYMBOL_LIST;
+                simple = new_list(qtype::SYMBOL_LIST, 0);
+                simple.push_symbol(v.as_str().unwrap()).unwrap();
+              },
+              qtype::SYMBOL_LIST => {
+                simple.push_symbol(v.as_str().unwrap()).unwrap();
+              }
+              qtype::COMPOUND_LIST => {
+                compound.push(new_symbol(v.as_str().unwrap())).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_symbol(v.as_str().unwrap())).unwrap();
+              }
+            }
+          },
+          Value::Message(message) if message.descriptor().full_name() == "q.timestamp" => {
+            // Timestamp
+            let v = message.get_field_by_name("nanos").unwrap();
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::TIMESTAMP_LIST;
+                simple = new_list(qtype::TIMESTAMP_LIST, 0);
+                simple.push_raw(v.as_i64().unwrap()).unwrap();
+              },
+              qtype::TIMESTAMP_LIST => {
+                simple.push_raw(v.as_i64().unwrap()).unwrap();
+              }
+              qtype::COMPOUND_LIST => {
+                compound.push(new_timestamp(v.as_i64().unwrap())).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_timestamp(v.as_i64().unwrap())).unwrap();
+              }
+            }
+          },
+          Value::Message(message) if message.descriptor().full_name() == "q.month" => {
+            // Month
+            let v = message.get_field_by_name("months").unwrap();
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::MONTH_LIST;
+                simple = new_list(qtype::MONTH_LIST, 0);
+                simple.push_raw(v.as_i32().unwrap()).unwrap();
+              },
+              qtype::MONTH_LIST => {
+                simple.push_raw(v.as_i32().unwrap()).unwrap();
+              }
+              qtype::COMPOUND_LIST => {
+                compound.push(new_month(v.as_i32().unwrap())).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_month(v.as_i32().unwrap())).unwrap();
+              }
+            }
+          },
+          Value::Message(message) if message.descriptor().full_name() == "q.date" => {
+            // Date
+            let v = message.get_field_by_name("days").unwrap();
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::DATE_LIST;
+                simple = new_list(qtype::DATE_LIST, 0);
+                simple.push_raw(v.as_i32().unwrap()).unwrap();
+              },
+              qtype::DATE_LIST => {
+                simple.push_raw(v.as_i32().unwrap()).unwrap();
+              }
+              qtype::COMPOUND_LIST => {
+                compound.push(new_date(v.as_i32().unwrap())).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_date(v.as_i32().unwrap())).unwrap();
+              }
+            }
+          },
+          Value::Message(message) if message.descriptor().full_name() == "q.datetime" => {
+            // Datetime
+            let v = message.get_field_by_name("days").unwrap();
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::DATETIME_LIST;
+                simple = new_list(qtype::DATETIME_LIST, 0);
+                simple.push_raw(v.as_f64().unwrap()).unwrap();
+              },
+              qtype::DATETIME_LIST => {
+                simple.push_raw(v.as_f64().unwrap()).unwrap();
+              }
+              qtype::COMPOUND_LIST => {
+                compound.push(new_datetime(v.as_f64().unwrap())).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_datetime(v.as_f64().unwrap())).unwrap();
+              }
+            }
+          },
+          Value::Message(message) if message.descriptor().full_name() == "q.timespan" => {
+            // Timespan
+            let v = message.get_field_by_name("nanos").unwrap();
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::TIMESPAN_LIST;
+                simple = new_list(qtype::TIMESPAN_LIST, 0);
+                simple.push_raw(v.as_i64().unwrap()).unwrap();
+              },
+              qtype::TIMESPAN_LIST => {
+                simple.push_raw(v.as_i64().unwrap()).unwrap();
+              }
+              qtype::COMPOUND_LIST => {
+                compound.push(new_timespan(v.as_i64().unwrap())).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_timespan(v.as_i64().unwrap())).unwrap();
+              }
+            }
+          },
+          Value::Message(message) if message.descriptor().full_name() == "q.minute" => {
+            // Minute
+            let v = message.get_field_by_name("minutes").unwrap();
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::MINUTE_LIST;
+                simple = new_list(qtype::MINUTE_LIST, 0);
+                simple.push_raw(v.as_i32().unwrap()).unwrap();
+              },
+              qtype::MINUTE_LIST => {
+                simple.push_raw(v.as_i32().unwrap()).unwrap();
+              }
+              qtype::COMPOUND_LIST => {
+                compound.push(new_minute(v.as_i32().unwrap())).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_minute(v.as_i32().unwrap())).unwrap();
+              }
+            }
+          },
+          Value::Message(message) if message.descriptor().full_name() == "q.second" => {
+            // Second
+            let v = message.get_field_by_name("seconds").unwrap();
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::SECOND_LIST;
+                simple = new_list(qtype::SECOND_LIST, 0);
+                simple.push_raw(v.as_i32().unwrap()).unwrap();
+              },
+              qtype::SECOND_LIST => {
+                simple.push_raw(v.as_i32().unwrap()).unwrap();
+              }
+              qtype::COMPOUND_LIST => {
+                compound.push(new_second(v.as_i32().unwrap())).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_second(v.as_i32().unwrap())).unwrap();
+              }
+            }
+          },
+          Value::Message(message) if message.descriptor().full_name() == "q.time" => {
+            // Time
+            let v = message.get_field_by_name("millis").unwrap();
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::TIME_LIST;
+                simple = new_list(qtype::TIME_LIST, 0);
+                simple.push_raw(v.as_i32().unwrap()).unwrap();
+              },
+              qtype::TIME_LIST => {
+                simple.push_raw(v.as_i32().unwrap()).unwrap();
+              }
+              qtype::COMPOUND_LIST => {
+                compound.push(new_time(v.as_i32().unwrap())).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+                compound.push(new_time(v.as_i32().unwrap())).unwrap();
+              }
+            }
+          },
+          Value::List(list) => {
+            // List
+            decode_list(list, &field, simple, &mut compound, &mut list_type);
+          },
+          Value::Map(map) => {
+            // Map
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::COMPOUND_LIST;
+                compound = new_list(qtype::COMPOUND_LIST, 0);
+              },
+              qtype::COMPOUND_LIST => (),
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+              }
+            }
+            compound.push(decode_map(map, &field)).unwrap();
           }
-        },
-        Value::I32(v) => {
-          // Int
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::INT_LIST;
-              simple = new_list(qtype::INT_LIST, 0);
-              simple.push_raw(*v).unwrap();
-            },
-            qtype::INT_LIST => {
-              simple.push_raw(*v).unwrap();
-            },
-            qtype::COMPOUND_LIST => {
-              compound.push(new_int(*v)).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_int(*v)).unwrap();
+          Value::Message(message) => {
+            // Protobuf message
+            let message_descriptor = message.descriptor();
+            let inner_fields = message_descriptor.fields();
+            let v = decode_message(message, inner_fields);
+            // Move to compound list
+            match list_type{
+              qtype::NULL =>{
+                list_type = qtype::COMPOUND_LIST;
+                compound = new_list(qtype::COMPOUND_LIST, 0);
+              },
+              qtype::COMPOUND_LIST => (),
+              _ => {
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple);
+              }
             }
-          }
-        },
-        Value::I64(v) => {
-          // Long
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::LONG_LIST;
-              simple = new_list(qtype::LONG_LIST, 0);
-              simple.push_raw(*v).unwrap();
-            },
-            qtype::LONG_LIST => {
-              simple.push_raw(*v).unwrap();
-            },
-            qtype::COMPOUND_LIST => {
-              compound.push(new_long(*v)).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_long(*v)).unwrap();
-            }
-          }
-        },
-        Value::F32(v) => {
-          // Real
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::REAL_LIST;
-              simple = new_list(qtype::REAL_LIST, 0);
-              simple.push_raw(*v as f64).unwrap();
-            },
-            qtype::REAL_LIST => {
-              simple.push_raw(*v as f64).unwrap();
-            },
-            qtype::COMPOUND_LIST => {
-              compound.push(new_real(*v as f64)).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_real(*v as f64)).unwrap();
-            }
-          }
-        },
-        Value::F64(v) => {
-          // Float
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::FLOAT_LIST;
-              simple = new_list(qtype::FLOAT_LIST, 0);
-              simple.push_raw(*v).unwrap();
-            },
-            qtype::FLOAT_LIST => {
-              simple.push_raw(*v).unwrap();
-            },
-            qtype::COMPOUND_LIST => {
-              compound.push(new_float(*v)).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_float(*v)).unwrap();
-            }
-          }
-        },
-        Value::String(v) => {
-          // String
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::COMPOUND_LIST;
-              compound = new_list(qtype::COMPOUND_LIST, 0);
-              compound.push(new_string(v)).unwrap();
-            },
-            qtype::COMPOUND_LIST => {
-              compound.push(new_string(v)).unwrap();
-            },
-            _ => {
-              // Simple list or null
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_string(v)).unwrap();
-            }
-          }
-        },
-        Value::Message(message) if message.descriptor().full_name() == "q.symbol" => {
-          // Symbol
-          let v = message.get_field_by_name("symbol").unwrap();
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::SYMBOL_LIST;
-              simple = new_list(qtype::SYMBOL_LIST, 0);
-              simple.push_symbol(v.as_str().unwrap()).unwrap();
-            },
-            qtype::SYMBOL_LIST => {
-              simple.push_symbol(v.as_str().unwrap()).unwrap();
-            }
-            qtype::COMPOUND_LIST => {
-              compound.push(new_symbol(v.as_str().unwrap())).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_symbol(v.as_str().unwrap())).unwrap();
-            }
-          }
-        },
-        Value::Message(message) if message.descriptor().full_name() == "q.timestamp" => {
-          // Timestamp
-          let v = message.get_field_by_name("nanos").unwrap();
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::TIMESTAMP_LIST;
-              simple = new_list(qtype::TIMESTAMP_LIST, 0);
-              simple.push_raw(v.as_i64().unwrap()).unwrap();
-            },
-            qtype::TIMESTAMP_LIST => {
-              simple.push_raw(v.as_i64().unwrap()).unwrap();
-            }
-            qtype::COMPOUND_LIST => {
-              compound.push(new_timestamp(v.as_i64().unwrap())).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_timestamp(v.as_i64().unwrap())).unwrap();
-            }
-          }
-        },
-        Value::Message(message) if message.descriptor().full_name() == "q.month" => {
-          // Month
-          let v = message.get_field_by_name("months").unwrap();
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::MONTH_LIST;
-              simple = new_list(qtype::MONTH_LIST, 0);
-              simple.push_raw(v.as_i32().unwrap()).unwrap();
-            },
-            qtype::MONTH_LIST => {
-              simple.push_raw(v.as_i32().unwrap()).unwrap();
-            }
-            qtype::COMPOUND_LIST => {
-              compound.push(new_month(v.as_i32().unwrap())).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_month(v.as_i32().unwrap())).unwrap();
-            }
-          }
-        },
-        Value::Message(message) if message.descriptor().full_name() == "q.date" => {
-          // Date
-          let v = message.get_field_by_name("days").unwrap();
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::DATE_LIST;
-              simple = new_list(qtype::DATE_LIST, 0);
-              simple.push_raw(v.as_i32().unwrap()).unwrap();
-            },
-            qtype::DATE_LIST => {
-              simple.push_raw(v.as_i32().unwrap()).unwrap();
-            }
-            qtype::COMPOUND_LIST => {
-              compound.push(new_date(v.as_i32().unwrap())).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_date(v.as_i32().unwrap())).unwrap();
-            }
-          }
-        },
-        Value::Message(message) if message.descriptor().full_name() == "q.datetime" => {
-          // Datetime
-          let v = message.get_field_by_name("days").unwrap();
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::DATETIME_LIST;
-              simple = new_list(qtype::DATETIME_LIST, 0);
-              simple.push_raw(v.as_f64().unwrap()).unwrap();
-            },
-            qtype::DATETIME_LIST => {
-              simple.push_raw(v.as_f64().unwrap()).unwrap();
-            }
-            qtype::COMPOUND_LIST => {
-              compound.push(new_datetime(v.as_f64().unwrap())).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_datetime(v.as_f64().unwrap())).unwrap();
-            }
-          }
-        },
-        Value::Message(message) if message.descriptor().full_name() == "q.timespan" => {
-          // Timespan
-          let v = message.get_field_by_name("nanos").unwrap();
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::TIMESPAN_LIST;
-              simple = new_list(qtype::TIMESPAN_LIST, 0);
-              simple.push_raw(v.as_i64().unwrap()).unwrap();
-            },
-            qtype::TIMESPAN_LIST => {
-              simple.push_raw(v.as_i64().unwrap()).unwrap();
-            }
-            qtype::COMPOUND_LIST => {
-              compound.push(new_timespan(v.as_i64().unwrap())).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_timespan(v.as_i64().unwrap())).unwrap();
-            }
-          }
-        },
-        Value::Message(message) if message.descriptor().full_name() == "q.minute" => {
-          // Minute
-          let v = message.get_field_by_name("minutes").unwrap();
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::MINUTE_LIST;
-              simple = new_list(qtype::MINUTE_LIST, 0);
-              simple.push_raw(v.as_i32().unwrap()).unwrap();
-            },
-            qtype::MINUTE_LIST => {
-              simple.push_raw(v.as_i32().unwrap()).unwrap();
-            }
-            qtype::COMPOUND_LIST => {
-              compound.push(new_minute(v.as_i32().unwrap())).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_minute(v.as_i32().unwrap())).unwrap();
-            }
-          }
-        },
-        Value::Message(message) if message.descriptor().full_name() == "q.second" => {
-          // Second
-          let v = message.get_field_by_name("seconds").unwrap();
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::SECOND_LIST;
-              simple = new_list(qtype::SECOND_LIST, 0);
-              simple.push_raw(v.as_i32().unwrap()).unwrap();
-            },
-            qtype::SECOND_LIST => {
-              simple.push_raw(v.as_i32().unwrap()).unwrap();
-            }
-            qtype::COMPOUND_LIST => {
-              compound.push(new_second(v.as_i32().unwrap())).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_second(v.as_i32().unwrap())).unwrap();
-            }
-          }
-        },
-        Value::Message(message) if message.descriptor().full_name() == "q.time" => {
-          // Time
-          let v = message.get_field_by_name("millis").unwrap();
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::TIME_LIST;
-              simple = new_list(qtype::TIME_LIST, 0);
-              simple.push_raw(v.as_i32().unwrap()).unwrap();
-            },
-            qtype::TIME_LIST => {
-              simple.push_raw(v.as_i32().unwrap()).unwrap();
-            }
-            qtype::COMPOUND_LIST => {
-              compound.push(new_time(v.as_i32().unwrap())).unwrap();
-            },
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-              compound.push(new_time(v.as_i32().unwrap())).unwrap();
-            }
-          }
-        },
-        Value::List(list) => {
-          // List
-          decode_list(list, &field, simple, &mut compound, &mut list_type);
-        },
-        Value::Map(map) => {
-          // Map
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::COMPOUND_LIST;
-              compound = new_list(qtype::COMPOUND_LIST, 0);
-            },
-            qtype::COMPOUND_LIST => (),
-            _ => {
-              // Move to compound list
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-            }
-          }
-          compound.push(decode_map(map, &field)).unwrap();
-        }
-        Value::Message(message) => {
-          // Protobuf message
-          let message_descriptor = message.descriptor();
-          let inner_fields =message_descriptor.fields();
-          let v = decode_message(message, inner_fields);
-          // Move to compound list
-          match list_type{
-            qtype::NULL =>{
-              list_type = qtype::COMPOUND_LIST;
-              compound = new_list(qtype::COMPOUND_LIST, 0);
-            },
-            qtype::COMPOUND_LIST => (),
-            _ => {
-              list_type = qtype::COMPOUND_LIST;
-              compound = simple_to_compound(simple);
-            }
-          }
-          compound.push(v).unwrap();
-        },
-        _ => unimplemented!()
-      }
-    }
-    else{
-      // No value is set to the field. Parse as null.
-      // Move to compound list
-      match list_type{
-        qtype::NULL =>{
-          list_type = qtype::COMPOUND_LIST;
-          compound = new_list(qtype::COMPOUND_LIST, 0);
-        },
-        qtype::COMPOUND_LIST => (),
-        _ => {
-          list_type = qtype::COMPOUND_LIST;
-          compound = simple_to_compound(simple);
+            compound.push(v).unwrap();
+          },
+          _ => unimplemented!()
         }
       }
-      compound.push(new_null()).unwrap();
+      else{
+        // No value is set to the field. Parse as null.
+        // Move to compound list
+        match list_type{
+          qtype::NULL =>{
+            list_type = qtype::COMPOUND_LIST;
+            compound = new_list(qtype::COMPOUND_LIST, 0);
+          },
+          qtype::COMPOUND_LIST => (),
+          _ => {
+            list_type = qtype::COMPOUND_LIST;
+            compound = simple_to_compound(simple);
+          }
+        }
+        compound.push(new_null()).unwrap();
+      }
+      i += 1;
     }
-    i += 1;
   });
   match list_type{
     qtype::COMPOUND_LIST => new_dictionary(keys, compound),

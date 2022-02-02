@@ -71,3 +71,14 @@ message Mappy{
   map<int64, q.month> xday = 2; 
   map<bool, Inner> physical = 3;
 }
+
+// Message containing oneof field.
+message OneOf{
+  bool static = 1;
+  oneof random{
+    int32 int_f = 2;
+    string string_f = 3;
+    q.month month_f = 4;
+    q.symbol symbol_f = 5;
+  }
+}

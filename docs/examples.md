@@ -76,6 +76,17 @@ message Mappy{
   map<int64, q.month> xday = 2; 
   map<bool, Inner> physical = 3;
 }
+
+// Message containing oneof field.
+message OneOf{
+  bool static = 1;
+  oneof random{
+    int32 int_f = 2;
+    string string_f = 3;
+    q.month month_f = 4;
+    q.symbol symbol_f = 5;
+  }
+}
 ```
 
 ## Atom Example
@@ -156,4 +167,21 @@ q).grpc.decode[`example.Mappy; encoded]
 id      | `Joshua`John`Mark!7 4 2i
 xday    | 1 3 2!1978.06 2018.02 2012.08m
 physical| 10b!+`inner_muscle`inner_mind!(3000 4000;`blue`happy)
+```
+
+## OneOf Example
+
+You don't need to worry about its format. Values are transparently encoded/decoded as the word `oneof` evokes you.
+
+*Note: If multiple values are set for oneof field, the last value is set.*
+
+```q
+q)encoded: .grpc.encode[`example.OneOf; `static`int_f!(1b; 42i)]
+q).grpc.decode[`example.OneOf; encoded]
+static| 1b
+int_f | 42i
+q)encoded: .grpc.encode[`example.OneOf; `static`month_f!(1b; 2022.02m)]
+q).grpc.decode[`example.OneOf; encoded]
+static | 1b
+month_f| 2022.02m
 ```
