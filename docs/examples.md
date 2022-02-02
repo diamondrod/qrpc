@@ -147,7 +147,7 @@ ikebukuro.com 12000 2D15:37:22.638791000 "Ezekiel"
 
 ## Map Example
 
-*Note: Map field does not save the order of keys.*
+*Note: Map field does not keep the order of keys.*
 
 ```q
 q)people: `id`xday`physical!(`Joshua`Mark`John!7 2 4i; 1 2 3!1978.06 2012.08 2018.02m; 10b!(`inner_muscle`inner_mind!(3000; `blue); `inner_muscle`inner_mind!(4000; `happy)))
