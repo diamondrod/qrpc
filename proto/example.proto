@@ -82,3 +82,27 @@ message OneOf{
     q.symbol symbol_f = 5;
   }
 }
+
+// Message representing available fruit.
+enum fruit{
+  unused = 0;
+  apple = 1;
+  banana = 2;
+  citrus = 3;
+  dragon_fruit = 4;
+}
+
+// Message representing available vegetables.
+enum vegetable{
+  unused = 0;
+  tomato = 1;
+  cabage = 2;
+  mashroom = 3;
+}
+
+// Message holding enum values.
+message Basket{
+  repeated fruit desserts = 1;
+  double price = 2;
+  vegetable snack = 3;
+}

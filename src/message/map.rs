@@ -65,8 +65,10 @@ pub(crate) fn k_to_map(value: K, message_descriptor: &MessageDescriptor) -> Resu
           qtype::TABLE => {
             // q converts list of dictionaries into table
             // Hence table must be treated by getting each row.
+            let enum_sources_ = get_enum_sources(&value_field_descriptor);
+            let enum_sources = enum_sources_.iter().map(|source| source.as_str()).collect::<Vec<&str>>();
             keys.as_mut_slice::<G>().iter().enumerate().map(|(i, key)|{
-              let row = values.get_row(i).unwrap();
+              let row = values.get_row(i, &enum_sources).unwrap();
               map.insert(MapKey::Bool(*key != 0), k_to_value(row, &value_field_descriptor)?);
               decrement_reference_count(row);
               Ok(())
@@ -124,8 +126,10 @@ pub(crate) fn k_to_map(value: K, message_descriptor: &MessageDescriptor) -> Resu
           qtype::TABLE => {
             // q converts list of dictionaries into table
             // Hence table must be treated by getting each row.
+            let enum_sources_ = get_enum_sources(&value_field_descriptor);
+            let enum_sources = enum_sources_.iter().map(|source| source.as_str()).collect::<Vec<&str>>();
             keys.as_mut_slice::<I>().iter().enumerate().map(|(i, key)|{
-              let row = values.get_row(i).unwrap();
+              let row = values.get_row(i, &enum_sources).unwrap();
               map.insert(MapKey::I32(*key), k_to_value(row, &value_field_descriptor)?);
               decrement_reference_count(row);
               Ok(())
@@ -183,8 +187,10 @@ pub(crate) fn k_to_map(value: K, message_descriptor: &MessageDescriptor) -> Resu
           qtype::TABLE => {
             // q converts list of dictionaries into table
             // Hence table must be treated by getting each row.
+            let enum_sources_ = get_enum_sources(&value_field_descriptor);
+            let enum_sources = enum_sources_.iter().map(|source| source.as_str()).collect::<Vec<&str>>();
             keys.as_mut_slice::<J>().iter().enumerate().map(|(i, key)|{
-              let row = values.get_row(i).unwrap();
+              let row = values.get_row(i, &enum_sources).unwrap();
               map.insert(MapKey::I64(*key), k_to_value(row, &value_field_descriptor)?);
               decrement_reference_count(row);
               Ok(())
@@ -243,8 +249,10 @@ pub(crate) fn k_to_map(value: K, message_descriptor: &MessageDescriptor) -> Resu
           qtype::TABLE => {
             // q converts list of dictionaries into table
             // Hence table must be treated by getting each row.
+            let enum_sources_ = get_enum_sources(&value_field_descriptor);
+            let enum_sources = enum_sources_.iter().map(|source| source.as_str()).collect::<Vec<&str>>();
             keys.as_mut_slice::<S>().iter().enumerate().map(|(i, key)|{
-              let row = values.get_row(i).unwrap();
+              let row = values.get_row(i, &enum_sources).unwrap();
               map.insert(MapKey::String(S_to_str(*key).to_string()), k_to_value(row, &value_field_descriptor)?);
               decrement_reference_count(row);
               Ok(())
@@ -268,7 +276,6 @@ pub(crate) fn k_to_map(value: K, message_descriptor: &MessageDescriptor) -> Resu
 }
 
 //%% Decode %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
-
 
 /// Decode map of bool key and int compatible value into q dictionary.
 fn decode_map_inner_bool_int(map: &HashMap<MapKey, Value>, value_type: i8) -> K{
@@ -918,5 +925,20 @@ pub(crate) fn decode_map(map: &HashMap<MapKey, Value>, field: &FieldDescriptor) 
       new_dictionary(keys, values)
     },
     _ => new_error("unsupported type")
+  }
+}
+
+/// Retrieve enum field names from a message.
+fn get_enum_sources(field_descriptor: &FieldDescriptor) -> Vec<String>{
+  match field_descriptor.kind(){
+    Kind::Message(message_descriptor) => {
+      message_descriptor.fields().filter_map(|field|{
+        match field.kind(){
+          Kind::Enum(enum_descriptor) => Some(enum_descriptor.name().to_string()),
+          _ => None
+        }
+      }).collect()
+    },
+    _ => Vec::new()
   }
 }

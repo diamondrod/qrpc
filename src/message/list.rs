@@ -15,7 +15,7 @@ use super::decode_message;
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 
 /// Decode list of values as q list object and push it to an existing list.
-pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K, compound: &mut K, list_type: &mut i8){
+pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K, compound: &mut K, list_type: &mut i8, enum_source: &str){
   match field.kind(){
     Kind::Bool => {
       // Bool list
@@ -29,7 +29,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::BOOL_LIST, list.len() as i64);
@@ -52,7 +52,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::INT_LIST, list.len() as i64);
@@ -74,7 +74,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::LONG_LIST, list.len() as i64);
@@ -96,7 +96,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::REAL_LIST, list.len() as i64);
@@ -118,7 +118,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::FLOAT_LIST, list.len() as i64);
@@ -140,7 +140,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::COMPOUND_LIST, list.len() as i64);
@@ -162,7 +162,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::SYMBOL_LIST, list.len() as i64);
@@ -184,7 +184,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::TIMESTAMP_LIST, list.len() as i64);
@@ -206,7 +206,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::MONTH_LIST, list.len() as i64);
@@ -228,7 +228,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::DATE_LIST, list.len() as i64);
@@ -250,7 +250,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::DATETIME_LIST, list.len() as i64);
@@ -272,7 +272,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::TIMESPAN_LIST, list.len() as i64);
@@ -294,7 +294,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::MINUTE_LIST, list.len() as i64);
@@ -316,7 +316,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::SECOND_LIST, list.len() as i64);
@@ -338,7 +338,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::TIME_LIST, list.len() as i64);
@@ -360,7 +360,7 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
         _ => {
           // Move to compound list
           *list_type = qtype::COMPOUND_LIST;
-          *compound = simple_to_compound(simple);
+          *compound = simple_to_compound(simple, enum_source);
         }
       }
       let q_list = new_list(qtype::COMPOUND_LIST, list.len() as i64);
@@ -372,6 +372,48 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
       // Repeated protobuf message is equivalent to repeated dictionary; hence map to table
       compound.push(unsafe{k(0, str_to_S!("{-1 _ x, (::)}"), q_list, KNULL)}).unwrap();
     },
+    Kind::Enum(enum_descriptor) => {
+      // Enum
+      match *list_type{
+        qtype::NULL => {
+          // Initialize compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = new_list(qtype::COMPOUND_LIST, 0);
+        },
+        qtype::COMPOUND_LIST => (),
+        _ => {
+          // Move to compound list
+          *list_type = qtype::COMPOUND_LIST;
+          *compound = simple_to_compound(simple, enum_source);
+        }
+      }
+      let q_list = new_list(qtype::LONG_LIST, list.len() as i64);
+      let q_list_slice = q_list.as_mut_slice::<J>();
+      list.iter().enumerate().for_each(|(i, element)|{
+        q_list_slice[i] = element.as_enum_number().unwrap() as i64;
+      });
+      let enum_name = enum_descriptor.name();
+      let sym = unsafe{k(0, str_to_S!(enum_name), KNULL)};
+      if sym.get_type() == qtype::ERROR{
+        // Not defined yet.
+        // Get all enum values
+        let values = &enum_descriptor.enum_descriptor_proto().value.iter().map(|v| v.name.as_ref()).collect::<Vec<_>>();
+        let enum_values = new_list(qtype::SYMBOL_LIST, values.len() as i64);
+        let enum_values_slice = enum_values.as_mut_slice::<S>();
+        values.iter().enumerate().for_each(|(i, value)|{
+          enum_values_slice[i] = enumerate(str_to_S!(value.unwrap()));
+        });
+        // Set values to sym
+        let function = format!("set[{}]", enum_name);
+        unsafe{k(0, str_to_S!(function), enum_values)};
+      }
+
+      // Free no longer necessary value
+      decrement_reference_count(sym);
+
+      let function = format!("{{`{}${} x}}", enum_name, enum_name);
+      compound.push(unsafe{k(0, str_to_S!(function), q_list, KNULL)}).unwrap();
+    }
     _ => unimplemented!()
   }
 }

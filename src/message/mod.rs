@@ -15,6 +15,7 @@ use prost::Message;
 use prost_reflect::{DynamicMessage, FileDescriptor, Value, ReflectMessage, MessageDescriptor, FieldDescriptor, Kind};
 use kdbplus::qtype;
 use kdbplus::api::*;
+use kdbplus::api::native::k;
 use list::decode_list;
 use map::{k_to_map, decode_map};
 
@@ -148,6 +149,16 @@ fn long_to_value(value: i64, field: &FieldDescriptor) -> Result<Value, &'static 
       inner.set_field_by_name("nanos", Value::I64(value));
       Ok(Value::Message(inner))
     },
+    // Enum
+    Kind::Enum(enum_descriptor) => {
+      let range = &enum_descriptor.enum_descriptor_proto().value;
+      if range[0].number.unwrap() <= value as i32 && range[range.len()-1].number.unwrap() >= value as i32{
+        Ok(Value::EnumNumber(value as i32))
+      }
+      else{
+        Err("not a reserved enum value\0")
+      }
+    }
     // There are no other long compatible type
     _ => Err("non-long value\0")
   }
@@ -363,8 +374,17 @@ fn k_to_value(value: K, field: &FieldDescriptor) -> Result<Value, &'static str>{
     // Repeated protobuf message
     Kind::Message(message_descriptor) if field.is_list() => {
       if value.get_type() == qtype::TABLE{
+        // Names of enum fields
+        let enum_sources_ = message_descriptor.fields().filter_map(|field|{
+          match field.kind(){
+            Kind::Enum(enum_descriptor) => Some(enum_descriptor.name().to_string()),
+            _ => None
+          }
+        }).collect::<Vec<_>>();
+        let enum_sources = enum_sources_.iter().map(|source| source.as_str()).collect::<Vec<_>>();
         Ok(Value::List((0..value.len() as usize).into_iter().map(|i|{
-          let row = value.get_row(i).unwrap();
+          // Can I get enum field name??
+          let row = value.get_row(i, &enum_sources).unwrap();
           let encoded = Value::Message(encode_to_message(message_descriptor.clone(), row)?);
           decrement_reference_count(row);
           Ok(encoded)
@@ -374,6 +394,26 @@ fn k_to_value(value: K, field: &FieldDescriptor) -> Result<Value, &'static str>{
         Err("type mismatch. expected: table\0")
       }
     },
+    // Enum
+    Kind::Enum(enum_descriptor) if field.is_list() => {
+      // Enum list
+      if value.get_type() == qtype::ENUM_LIST{
+        let range = &enum_descriptor.enum_descriptor_proto().value;
+        let start = range[0].number.unwrap();
+        let end = range[range.len()-1].number.unwrap();
+        Ok(Value::List(value.as_mut_slice::<J>().iter().map(|value|{
+          if start <= *value as i32 && end >= *value as i32{
+            Ok(Value::EnumNumber(*value as i32))
+          }
+          else{
+            Err("not a reserved enum value\0")
+          }
+        }).collect::<Result<Vec<Value>, &'static str>>()?))
+      }
+      else{
+        Err("type mismatch. expected: time list\0")
+      }
+    }
     // Bool
     Kind::Bool => Ok(Value::Bool(value.get_bool()?)),
     // Int
@@ -438,6 +478,17 @@ fn k_to_value(value: K, field: &FieldDescriptor) -> Result<Value, &'static str>{
       inner.set_field_by_name("millis", Value::I32(value.get_int()?));
       Ok(Value::Message(inner))
     },
+    // Enum
+    Kind::Enum(enum_descriptor) => {
+      let index = value.get_long().unwrap() as i32;
+      let range = &enum_descriptor.enum_descriptor_proto().value;
+      if range[0].number.unwrap() <= index && range[range.len()-1].number.unwrap() >= index{
+        Ok(Value::EnumNumber(index))
+      }
+      else{
+        Err("not a reserved enum value\0")
+      }
+    }
     // Map
     Kind::Message(message_descriptor) if field.is_map() => {
       // Map field equivalent of repeated map entry composed of `key = 1` and `value = 2`.
@@ -553,6 +604,13 @@ fn encode_to_message(message_descriptor: MessageDescriptor, data: K) -> Result<D
         }             
       }
     },
+    qtype::ENUM_LIST => {
+      for (key, value) in keys.iter().zip(values.as_mut_slice::<J>()){
+        if let Some(field) = dynamic_message.descriptor().get_field_by_name(S_to_str(*key)){
+          dynamic_message.set_field(&field, long_to_value(*value, &field)?);
+        }             
+      }
+    },
     qtype::COMPOUND_LIST => {
       let values = values.as_mut_slice::<K>();
       for i in 0 .. keys.len(){
@@ -575,6 +633,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
   let mut simple = KNULL;
   let mut compound = KNULL;
   let mut list_type = qtype::NULL;
+  let mut enum_source = String::new();
   let mut i = 0;
   fields.into_iter().for_each(|field|{
     if dynamic_message.has_field(&field){
@@ -602,7 +661,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_bool(*v as i32)).unwrap();
               }
             }
@@ -624,7 +683,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_int(*v)).unwrap();
               }
             }
@@ -646,7 +705,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_long(*v)).unwrap();
               }
             }
@@ -668,7 +727,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_real(*v as f64)).unwrap();
               }
             }
@@ -690,7 +749,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_float(*v)).unwrap();
               }
             }
@@ -710,7 +769,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
                 // Simple list or null
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_string(v)).unwrap();
               }
             }
@@ -733,7 +792,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_symbol(v.as_str().unwrap())).unwrap();
               }
             }
@@ -756,7 +815,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_timestamp(v.as_i64().unwrap())).unwrap();
               }
             }
@@ -779,7 +838,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_month(v.as_i32().unwrap())).unwrap();
               }
             }
@@ -802,7 +861,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_date(v.as_i32().unwrap())).unwrap();
               }
             }
@@ -825,7 +884,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_datetime(v.as_f64().unwrap())).unwrap();
               }
             }
@@ -848,7 +907,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_timespan(v.as_i64().unwrap())).unwrap();
               }
             }
@@ -871,7 +930,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_minute(v.as_i32().unwrap())).unwrap();
               }
             }
@@ -894,7 +953,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_second(v.as_i32().unwrap())).unwrap();
               }
             }
@@ -917,14 +976,14 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
                 compound.push(new_time(v.as_i32().unwrap())).unwrap();
               }
             }
           },
           Value::List(list) => {
             // List
-            decode_list(list, &field, simple, &mut compound, &mut list_type);
+            decode_list(list, &field, simple, &mut compound, &mut list_type, &enum_source);
           },
           Value::Map(map) => {
             // Map
@@ -937,7 +996,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               _ => {
                 // Move to compound list
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
               }
             }
             compound.push(decode_map(map, &field)).unwrap();
@@ -956,11 +1015,46 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
               qtype::COMPOUND_LIST => (),
               _ => {
                 list_type = qtype::COMPOUND_LIST;
-                compound = simple_to_compound(simple);
+                compound = simple_to_compound(simple, "");
               }
             }
             compound.push(v).unwrap();
           },
+          Value::EnumNumber(index) => {
+            // Enum
+            match list_type{
+              qtype::NULL =>{
+                enum_source = get_enum_name(&field).unwrap();
+                list_type = qtype::ENUM_LIST;
+                simple = new_list(qtype::ENUM_LIST, 0);
+                simple.push_raw(*index as i64).unwrap();
+              },
+              qtype::ENUM_LIST => {
+                let enum_name = get_enum_name(&field).unwrap();
+                // It is assured that enum_source is not empty when list type is enum list
+                //  by the first case.
+                if enum_source != enum_name{
+                  // Enum list from two different sources is a compound list
+                  list_type = qtype::COMPOUND_LIST;
+                  compound = simple_to_compound(simple, &enum_source);
+                  compound.push(new_enum(enum_name.as_str(), *index as i64)).unwrap();
+                }
+                else{
+                  // Same enum source
+                  simple.push_raw(*index as i64).unwrap();
+                }
+              }
+              qtype::COMPOUND_LIST => {
+                compound.push(new_enum(&get_enum_name(&field).unwrap(), *index as i64)).unwrap();
+              },
+              _ => {
+                // Move to compound list
+                list_type = qtype::COMPOUND_LIST;
+                compound = simple_to_compound(simple, &enum_source);
+                compound.push(new_enum(&get_enum_name(&field).unwrap(), *index as i64)).unwrap();
+              }
+            }
+          }
           _ => unimplemented!()
         }
       }
@@ -975,7 +1069,7 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
           qtype::COMPOUND_LIST => (),
           _ => {
             list_type = qtype::COMPOUND_LIST;
-            compound = simple_to_compound(simple);
+            compound = simple_to_compound(simple, "");
           }
         }
         compound.push(new_null()).unwrap();
@@ -985,6 +1079,26 @@ fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterat
   });
   match list_type{
     qtype::COMPOUND_LIST => new_dictionary(keys, compound),
+    qtype::ENUM_LIST => {
+      // Enum list itself cannot be returned to q due to lack of link to enum sources
+      let function = format!("{{`{}${} x}}", enum_source, enum_source);
+      // Move to long list to pass to source enum
+      let indices = new_list(qtype::LONG_LIST, simple.len());
+      indices.as_mut_slice::<J>().copy_from_slice(&simple.as_mut_slice::<J>());
+      decrement_reference_count(simple);
+      let new_simple = unsafe{k(0, str_to_S!(function), indices, KNULL)};
+      new_dictionary(keys, new_simple)
+    }
     _ => new_dictionary(keys, simple)
+  }
+}
+
+//%% Utility %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
+
+/// Get underlying enum name from a field descriptor.
+fn get_enum_name(field_descriptor: &FieldDescriptor) -> Option<String>{
+  match field_descriptor.kind(){
+    Kind::Enum(enum_descriptor) => Some(enum_descriptor.name().to_string()),
+    _ => None
   }
 }

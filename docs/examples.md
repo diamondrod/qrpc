@@ -87,6 +87,30 @@ message OneOf{
     q.symbol symbol_f = 5;
   }
 }
+
+// Message representing available fruit.
+enum fruit{
+  unused = 0;
+  apple = 1;
+  banana = 2;
+  citrus = 3;
+  dragon_fruit = 4;
+}
+
+// Message representing available vegetables.
+enum vegetable{
+  unused = 0;
+  tomato = 1;
+  cabage = 2;
+  mashroom = 3;
+}
+
+// Message holding enum values.
+message Basket{
+  repeated fruit basket = 1;
+  double price = 2;
+  vegetable snack = 3;
+}
 ```
 
 ## Atom Example
@@ -184,4 +208,18 @@ q)encoded: .grpc.encode[`example.OneOf; `static`month_f!(1b; 2022.02m)]
 q).grpc.decode[`example.OneOf; encoded]
 static | 1b
 month_f| 2022.02m
+```
+
+## Enum Example
+
+*Note: You must define enum variables whose names are identical to the message type (case sensitive).*
+
+```q
+q)fruit: `unused`apple`banana`citrus`dragon_fruit
+q)vegetable: `unused`tomato`cabage`mashroom
+q)encoded: .grpc.encode[`example.Basket; `desserts`price`snack!(`fruit$`apple`banana; 103.2; `vegetable$`tomato)]
+q).grpc.decode[`example.Basket; encoded]
+basket| `fruit$`apple`banana
+price | 103.2
+snack | `vegetable$`tomato
 ```

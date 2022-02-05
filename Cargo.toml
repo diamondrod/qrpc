@@ -8,11 +8,11 @@ crate-type=["cdylib"]
 
 [dependencies]
 bytes = "1"
-kdbplus={version="^0.3", features=["api"]}
+kdbplus={version="^0.3.7", features=["api"]}
 once_cell="1"
 prost="^0.9"
 prost-types="^0.9"
-prost-reflect="^0.5"
+prost-reflect="^0.5.5"
 tonic="^0.6"
 
 [build-dependencies]
