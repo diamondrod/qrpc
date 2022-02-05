@@ -212,7 +212,9 @@ month_f| 2022.02m
 
 ## Enum Example
 
-*Note: You must define enum variables whose names are identical to the message type (case sensitive).*
+*Notes:*
+- *You must define enum variables whose names are identical to the message type (case sensitive).*
+- *default enum values are trimmed by underlying protobuf library at the stage of encoding.*
 
 ```q
 q)fruit: `unused`apple`banana`citrus`dragon_fruit
