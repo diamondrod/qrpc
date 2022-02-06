@@ -26,7 +26,7 @@ use map::{k_to_map, decode_map};
 /// Bytes representing compiled files.
 const PROTO_FILE_DESCRIPTOR_SET_BYTES: &[u8] = include_bytes!("../../qrpc_fd_set");
 /// File descriptor of compiled files.
-static PROTO_FILE_DESCRIPTOR: Lazy<FileDescriptor> = Lazy::new(|| FileDescriptor::decode(PROTO_FILE_DESCRIPTOR_SET_BYTES).unwrap());
+pub(crate) static PROTO_FILE_DESCRIPTOR: Lazy<FileDescriptor> = Lazy::new(|| FileDescriptor::decode(PROTO_FILE_DESCRIPTOR_SET_BYTES).unwrap());
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 //>> Interface
@@ -501,7 +501,7 @@ fn k_to_value(value: K, field: &FieldDescriptor) -> Result<Value, &'static str>{
 }
 
 /// Encode q dictionary to dynamic message.
-fn encode_to_message(message_descriptor: MessageDescriptor, data: K) -> Result<DynamicMessage, &'static str>{
+pub(crate) fn encode_to_message(message_descriptor: MessageDescriptor, data: K) -> Result<DynamicMessage, &'static str>{
   let mut dynamic_message = DynamicMessage::new(message_descriptor);
   let keys = data.as_mut_slice::<K>()[0].as_mut_slice::<S>();
   let values = data.as_mut_slice::<K>()[1];
@@ -628,7 +628,7 @@ fn encode_to_message(message_descriptor: MessageDescriptor, data: K) -> Result<D
 //%% Decode %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
 
 /// Convert dynamic message into q dictionary.
-fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterator<Item = FieldDescriptor>) -> K{
+pub(crate) fn decode_message(dynamic_message: &DynamicMessage, fields: impl ExactSizeIterator<Item = FieldDescriptor>) -> K{
   let mut keys = new_list(qtype::SYMBOL_LIST, 0);
   let mut simple = KNULL;
   let mut compound = KNULL;

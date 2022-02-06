@@ -7,9 +7,11 @@ fn main() -> io::Result<()> {
 
     tonic_build::configure()
       .format(true)
-      .out_dir("src/proto/")
       // qrpc_fd_set is created in qRPC/.
       .file_descriptor_set_path("./qrpc_fd_set")
-      .compile(&["example.proto"], &[proto_dir])?;
+      .out_dir("src/client/proto")
+      //.include_file("mod.rs")
+      .compile(&["q.proto", "example.proto", "example_service.proto"], &[proto_dir])?;
+      
     Ok(())
 }

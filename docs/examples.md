@@ -1,4 +1,4 @@
-# Examples
+# Message Examples
 
 In the examples below we use example proto file `example.proto` wchich exists under `proto/` directory.
 
@@ -90,7 +90,7 @@ message OneOf{
 
 // Message representing available fruit.
 enum fruit{
-  unused = 0;
+  rotten_fruit = 0;
   apple = 1;
   banana = 2;
   citrus = 3;
@@ -99,7 +99,7 @@ enum fruit{
 
 // Message representing available vegetables.
 enum vegetable{
-  unused = 0;
+  rotten_vegetable = 0;
   tomato = 1;
   cabage = 2;
   mashroom = 3;
@@ -107,7 +107,7 @@ enum vegetable{
 
 // Message holding enum values.
 message Basket{
-  repeated fruit basket = 1;
+  repeated fruit desserts = 1;
   double price = 2;
   vegetable snack = 3;
 }

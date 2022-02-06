@@ -10,4 +10,4 @@ extern crate kdbplus;
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 
 pub(crate) mod message;
-
+pub(crate) mod client;
