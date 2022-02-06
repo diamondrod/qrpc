@@ -12,5 +12,6 @@ Users of q/kdb+ might have moarned that they could not use gRPC in q and used HT
 
 ## table of Contents
 
-1. Type Mapping
-2. [Examples](docs/examples.md)
+1. [Type Mapping](docs/type_mapping.md)
+2. [Message Examples](docs/message_examples.md)
+3. [gRPC Example](docs/grpc_example.md)

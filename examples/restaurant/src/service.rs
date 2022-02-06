@@ -49,7 +49,7 @@ impl Restaurant for RestaurantManager{
       else{
         let time = order.ordered_time;
         // Build a map from item to unit, and then to history
-        let history = order.items.into_iter().fold(HashMap::new(), |mut map, item|{
+        let mut history = order.items.into_iter().fold(HashMap::new(), |mut map, item|{
           if let Some(record) = map.get_mut(&item){
             *record += 1;
           }
@@ -68,7 +68,14 @@ impl Restaurant for RestaurantManager{
 
         // Update internal table
         let mut tables = self.tables.write().await;
-        tables.insert(order.table, history);
+        if let Some(record) = tables.get_mut(&order.table){
+          // Record exists. Append new history.
+          record.append(&mut history);
+        }
+        else{
+          // No record. Insert a new one.
+          tables.insert(order.table, history);
+        }
 
         Ok(Response::new(Acceptance{
           accepted: true,

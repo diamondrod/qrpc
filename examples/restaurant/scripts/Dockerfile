@@ -24,5 +24,5 @@ RUN export PROTOC=/usr/bin/protoc && \
 
 FROM alpine:3.14
 COPY --from=1 /app/target/release/restaurant .
-EXPOSE 31600
+EXPOSE 3160
 ENTRYPOINT [ "./restaurant" ]
