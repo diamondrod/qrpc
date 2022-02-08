@@ -11,6 +11,8 @@ async fn main() -> Result<(), Error>{
   
   let addr = "0.0.0.0:3160".parse().unwrap();
 
+  println!("Restaurant was opened");
+
   Server::builder()
       .add_service(RestaurantServer::new(service))
       .serve(addr)

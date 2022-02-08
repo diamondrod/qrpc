@@ -4,13 +4,7 @@
 
 ## Build and Run
 
-This process will run on a port 3160 with a name `master_sheff`. The container should be accessed with `http://localhost:3160`.
-```sh
-restaurant]$ ./scripts/build.sh
-restaurant]$ ./scripts/run.sh
-```
-
-or you can simply run with an ordinary `run`:
+This process will run on a port 3160 and you can connect with `"http://localhost:3160"`. You can simply run with an ordinary `cargo run`:
 ```sh
 restaurant]$ cargo run
 ```

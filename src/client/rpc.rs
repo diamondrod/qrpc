@@ -1,6 +1,5 @@
 
-
-
+use super::ENDPOINT;
 use super::proto::example_service::restaurant_client::RestaurantClient;
 use super::proto::example_service::{Order, Acceptance, Expense, Total};
 use crate::message::{PROTO_FILE_DESCRIPTOR, encode_to_message, decode_message};
@@ -14,21 +13,6 @@ use kdbplus::api::*;
 static ERROR_BUFFER: Lazy<RwLock<String>> = Lazy::new(||{
   RwLock::new(String::new())
 });
-
-static ENDPOINT: Lazy<RwLock<String>> = Lazy::new(|| RwLock::new(String::new()));
-
-#[no_mangle]
-pub extern "C" fn set_endpoint(endpoint: K) -> K{
-  match endpoint.get_string(){
-    Ok(url) => {
-      let mut endpoint = ENDPOINT.write().expect("failed to get write lock");
-      endpoint.clear();
-      endpoint.push_str(&url);
-      new_string("endpoint was set\0")
-    },
-    Err(error) => new_error(error)
-  }
-}
 
 #[no_mangle]
 pub extern "C" fn submit_(message: K) -> K{
