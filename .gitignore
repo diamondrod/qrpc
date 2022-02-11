@@ -1,12 +1,15 @@
-/target
+target/
 Cargo.lock
-src/proto/example.rs
-src/proto/example_service.rs
-src/proto/q.rs
+*/target
+*/Cargo.lock
+qrpc/src/client/rpc.rs
+qrpc/src/proto/example.rs
+qrpc/src/proto/example_service.rs
+qrpc/src/proto/q.rs
 examples/restaurant/target
 examples/restaurant/Cargo.lock
 examples/restaurant/src/proto/example_service.rs
 examples/restaurant/src/proto/q.rs
 libqrpc.so
-qrpc_fd_set
+qrpc/qrpc_fd_set
 

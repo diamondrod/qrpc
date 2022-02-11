@@ -5,7 +5,7 @@
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 
 mod proto;
-mod rpc;
+mod qrpc;
 
 use std::sync::RwLock;
 use kdbplus::api::*;

@@ -1,0 +1,22 @@
+[package]
+name = "qrpc"
+version = "0.1.0"
+edition = "2021"
+authors = ["diamondrod"]
+
+[lib]
+crate-type=["cdylib"]
+
+[dependencies]
+bytes = "1"
+kdbplus={version="^0.3.7", features=["api"]}
+once_cell="1"
+prost="^0.9"
+prost-types="^0.9"
+prost-reflect="^0.5.5"
+tokio={version="1", features=["rt", "rt-multi-thread"]}
+tonic="^0.6"
+
+[build-dependencies]
+tonic-build="^0.6"
+qrpc_build={path="../qrpc_build"}
