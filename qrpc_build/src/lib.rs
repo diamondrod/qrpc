@@ -17,11 +17,11 @@ use std::str::Chars;
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 
 /// File name to output.
-const TARGET_FILE_NAME: &'static str = "qrpc.rs";
+const TARGET_FILE_NAME: &'static str = "../qrpc/src/client/qrpc.rs";
 
 /// File header.
-const HEADERS: &'static str = r#"
-//! This is an auto-generated code by qrpc_build crate.
+const HEADERS: &'static str = 
+r#"//! This is an auto-generated code by qrpc_build crate.
 
 use crate::message::{decode_message, encode_to_message, PROTO_FILE_DESCRIPTOR};
 use kdbplus::api::*;
@@ -31,6 +31,14 @@ use std::sync::RwLock;
 use super::ENDPOINT;
 use tokio::runtime::Builder;
 use tonic::Request;
+"#;
+
+/// Definition of error buffer.
+const ERROR_BUFFER: &'static str =
+r#"
+static ERROR_BUFFER: Lazy<RwLock<String>> = Lazy::new(||{
+    RwLock::new(String::new())
+});
 "#;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
@@ -44,9 +52,9 @@ use tonic::Request;
 /// - `messages`: Comma delimited message types to use.
 macro_rules! import_template {
     () => {
-        r#"
+r#"
 use super::proto::{package}::{snake_case_service}_client::{service}Client;
-use super::proto::{package}::{messages};
+use super::proto::{package}::{{{messages}}};
 "#
     };
 }
@@ -76,7 +84,7 @@ pub extern "C" fn {method}_(message: K) -> K {{
             if let Ok(mut client) = runtime.block_on({client_name}::connect(
                 ENDPOINT.read().expect("failed to get read lock").clone(),
             )) {{
-                match runtime.block_on(client.submit(Request::new(
+                match runtime.block_on(client.{method}(Request::new(
                     dynamic_message.transcode_to::<{request_type}>().unwrap(),
                 ))) {{
                     Ok(response) => {{
@@ -242,8 +250,9 @@ impl<'a> Tokenizer<'a> {
     fn tokenize_identifier(&mut self) -> io::Result<Token> {
         let mut identifier = String::new();
         while let Some(&ch) = self.input.peek() {
-            if ch.is_ascii_alphanumeric() || ch == '_' {
+            if ch.is_ascii_alphanumeric() || ch == '_' || ch == '.' {
                 identifier.push(ch);
+                self.advance();
             } else {
                 break;
             }
@@ -452,11 +461,12 @@ fn ast_to_code(writer: &mut BufWriter<File>, ast: Node, package: &mut String) ->
                     messages = messages.join(",")
                 );
                 writer.write_all(import.as_bytes())?;
+
                 // Write method code.
                 for rpc in rpcs {
                     let method = format!(
                         method_template!(),
-                        method = rpc.method,
+                        method = rpc.method.to_lowercase(),
                         client_name = format!("{}Client", name),
                         fq_request_type = [package.as_str(), rpc.request.as_str()].join("."),
                         fq_response_type = [package.as_str(), rpc.response.as_str()].join("."),
@@ -513,7 +523,12 @@ pub fn generate_code(files: &[impl AsRef<Path>], includes: &[impl AsRef<Path>]) 
         .create(true)
         .open(TARGET_FILE_NAME)?;
     let mut writer = BufWriter::new(output);
+
+    // Write headers.
     writer.write_all(HEADERS.as_bytes())?;
+
+    // Write definition of error buffer.
+    writer.write_all(ERROR_BUFFER.as_bytes())?;
 
     // Read inputs and check service related information.
     files
@@ -535,20 +550,24 @@ pub fn generate_code(files: &[impl AsRef<Path>], includes: &[impl AsRef<Path>]) 
                         let mut line = String::new();
                         let mut reader = BufReader::new(input);
                         // Read each line and find package name, service name and associated messages.
-                        while let Ok(_) = reader.read_line(&mut line) {
-                            if line.starts_with("package") {
+                        while let Ok(num_bytes) = reader.read_line(&mut line) {
+                            if num_bytes == 0 {
+                                // Reached EOF
+                                break;
+                            }
+                            if line.trim().starts_with("package") {
                                 let mut analyzer = SemanticAnalyzer::new(line.as_str())?;
                                 let ast = analyzer.parse()?;
                                 ast_to_code(&mut writer, ast, &mut package)?;
                                 line.clear();
-                            } else if line.starts_with("service") {
+                            } else if line.trim().starts_with("service") {
                                 in_service_definition = true;
                                 service_definition += line.as_str();
                                 line.clear();
-                            } else if line.starts_with("rpc") {
+                            } else if line.trim().starts_with("rpc") {
                                 service_definition += line.as_str();
                                 line.clear();
-                            } else if line.starts_with("}") {
+                            } else if line.trim().starts_with("}") {
                                 if in_service_definition {
                                     // Closing brace of a service definition
                                     service_definition += line.as_str();

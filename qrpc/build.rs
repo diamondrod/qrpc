@@ -12,7 +12,7 @@ fn main() -> io::Result<()> {
       // qrpc_fd_set is created in qRPC/.
       .file_descriptor_set_path("./qrpc_fd_set")
       .out_dir("src/client/proto")
-      .compile(proto_files, &[proto_dir])?;
+      .compile(proto_files, &[proto_dir.clone()])?;
 
     qrpc_build::generate_code(proto_files, &[proto_dir])?;
       
