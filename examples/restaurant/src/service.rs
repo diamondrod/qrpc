@@ -96,6 +96,61 @@ impl Restaurant for RestaurantManager {
             )))
         }
     }
+
+    async fn cancel(&self, request: Request<Order>) -> Result<Response<()>, Status> {
+        // Map from item number to a unit of the item to cancel
+        let order = request.into_inner();
+        let to_cancel = order
+            .items
+            .into_iter()
+            .fold(HashMap::new(), |mut map, item| {
+                if let Some(record) = map.get_mut(&item) {
+                    *record += 1;
+                } else {
+                    map.insert(item, 1);
+                }
+                map
+            });
+
+        if let Some(histories) = self.tables.write().await.get_mut(&order.table) {
+            // Table exists
+            to_cancel.into_iter().for_each(|(item, mut unit)| {
+                *histories = histories
+                    .into_iter()
+                    .filter_map(|history| {
+                        if history.item == item {
+                            if history.unit > unit {
+                                // Cancel amount is less than the unit of current history.
+                                // Subtract by the cancel mount.
+                                Some(History {
+                                    time: history.time.clone(),
+                                    item: history.item,
+                                    unit: history.unit - unit,
+                                    price: history.price,
+                                })
+                            } else {
+                                // Cancel amount exceeds the unit of the current history.
+                                // Reduce the amount to cancel by the unit of the current hostory.
+                                unit -= history.unit;
+                                // History is removed.
+                                None
+                            }
+                        } else {
+                            // The cancelled item is not related to this history.
+                            Some(history.clone())
+                        }
+                    })
+                    .collect();
+            });
+            Ok(Response::new(()))
+        } else {
+            // There is no history for the table
+            Err(Status::internal(format!(
+                "no order for the table id: {}",
+                order.table
+            )))
+        }
+    }
 }
 
 impl RestaurantManager {

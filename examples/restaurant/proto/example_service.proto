@@ -2,6 +2,7 @@ syntax="proto3";
 
 package example_service;
 
+import "google/protobuf/empty.proto";
 import "q.proto";
 
 // Available menu.
@@ -51,6 +52,11 @@ message Total{
 
 // Service mocking a restaurant order system.
 service Restaurant{
+  // Customer submits an order and a kitchen returns a response.
   rpc Submit(Order) returns (Acceptance);
+  // Customer finish a meal handing an expense and a restaurant displays a total due
+  //  with an order history.
   rpc Finish(Expense) returns (Total);
+  // Customer forcefully cancels an order.
+  rpc Cancel(Order) returns (google.protobuf.Empty);
 }

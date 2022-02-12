@@ -23,6 +23,10 @@ const TARGET_FILE_NAME: &'static str = "../qrpc/src/client/qrpc.rs";
 const HEADERS: &'static str = 
 r#"//! This is an auto-generated code by qrpc_build crate.
 
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+//>> Load Libraries
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+
 use crate::message::{decode_message, encode_to_message, PROTO_FILE_DESCRIPTOR};
 use kdbplus::api::*;
 use once_cell::sync::Lazy;
@@ -36,10 +40,25 @@ use tonic::Request;
 /// Definition of error buffer.
 const ERROR_BUFFER: &'static str =
 r#"
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+//>> Global Variables
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+
+/// Buffer to store error message until q returns it.
 static ERROR_BUFFER: Lazy<RwLock<String>> = Lazy::new(||{
     RwLock::new(String::new())
 });
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+//>> Implementation
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
 "#;
+
+/// Template of a response handler for an exported client methods called from q with an empty response.
+const EMPTY_RESPONSE_HANDLER: &'static str = 
+r#" Ok(_response) => {{
+                        new_null()
+                    }}"#;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 //>> Macros
@@ -59,13 +78,30 @@ use super::proto::{package}::{{{messages}}};
     };
 }
 
+/// Template of a response handler for an exported client methods called from q with a non-empty response.
+/// - `fq_response_type`: Fully qualified response type name starting from package name.
+/// - `response_type`: Response type.
+macro_rules! non_empty_response_handler {
+    () => {
+r#" Ok(response) => {{
+                        let message_descriptor = PROTO_FILE_DESCRIPTOR
+                            .get_message_by_name("{fq_response_type}")
+                            .unwrap();
+                        let mut dynamic_message = DynamicMessage::new(message_descriptor.clone());
+                        dynamic_message
+                            .transcode_from::<{response_type}>(&response.into_inner())
+                            .unwrap();
+                        decode_message(&dynamic_message, message_descriptor.fields())
+                    }}"#
+    };
+}
+
 /// Template of exported client methods called from q.
 /// - `method`: gRPC service request method.
 /// - `client_name`: Client type in the form of [service]Clients.
 /// - `fq_request_type`: Fully qualified request type name starting from package name.
-/// - `fq_response_type`: Fully qualified response type name starting from package name.
 /// - `request_type`: Request type.
-/// - `response_type`: Response type.
+/// - `response_handler`: Pre-built response handler with fully-qualified response type and response type.
 macro_rules! method_template {
     () => {
         r#"
@@ -87,16 +123,7 @@ pub extern "C" fn {method}_(message: K) -> K {{
                 match runtime.block_on(client.{method}(Request::new(
                     dynamic_message.transcode_to::<{request_type}>().unwrap(),
                 ))) {{
-                    Ok(response) => {{
-                        let message_descriptor = PROTO_FILE_DESCRIPTOR
-                            .get_message_by_name("{fq_response_type}")
-                            .unwrap();
-                        let mut dynamic_message = DynamicMessage::new(message_descriptor.clone());
-                        dynamic_message
-                            .transcode_from::<{response_type}>(&response.into_inner())
-                            .unwrap();
-                        decode_message(&dynamic_message, message_descriptor.fields())
-                    }}
+                    {response_handler}
                     Err(error) => {{
                         let mut buffer = ERROR_BUFFER.write().expect("failed to get write lock");
                         buffer.clear();
@@ -110,6 +137,41 @@ pub extern "C" fn {method}_(message: K) -> K {{
             }}
         }}
         Err(error) => new_error(error),
+    }}
+}}
+"#
+    };
+}
+
+/// Template of exported client methods called from q which uses `google.protobuf.Empty` as a request type.
+/// - `method`: gRPC service request method.
+/// - `client_name`: Client type in the form of [service]Clients.
+/// - `response_handler`: Pre-built response handler with fully-qualified response type and response type.
+macro_rules! empty_input_method_template {
+    () => {
+        r#"
+#[no_mangle]
+pub extern "C" fn {method}_(_message: K) -> K {{
+    let runtime = Builder::new_current_thread()
+        .enable_time()
+        .enable_io()
+        .build()
+        .unwrap();
+    if let Ok(mut client) = runtime.block_on({client_name}::connect(
+        ENDPOINT.read().expect("failed to get read lock").clone(),
+    )) {{
+        match runtime.block_on(client.{method}(Request::new(()))) {{
+            {response_handler}
+            Err(error) => {{
+                let mut buffer = ERROR_BUFFER.write().expect("failed to get write lock");
+                buffer.clear();
+                let null_terminated_error = format!("{}\0", error.message());
+                buffer.push_str(null_terminated_error.as_str());
+                new_error(buffer.as_str())
+            }}
+        }}
+    }} else {{
+        new_error("failed to connect\0")
     }}
 }}
 "#
@@ -181,7 +243,7 @@ enum Node {
 }
 
 /// Analyze a token stream and build Abstract Syntax Tree.
-pub(crate) struct SemanticAnalyzer<'a> {
+struct SemanticAnalyzer<'a> {
     /// Sequence of tokens to convert into AST.
     tokenizer: Tokenizer<'a>,
     /// Current token.
@@ -350,7 +412,9 @@ impl<'a> SemanticAnalyzer<'a> {
         let request = self
             .consume_token(TokenKind::Identifier)?
             .expect("request type does not exist");
-        messages.insert(request.clone());
+        if request.as_str() != "google.protobuf.Empty"{
+            messages.insert(request.clone());
+        }
         self.consume_token(TokenKind::RightParenthesis)?;
         self.consume_token(TokenKind::Returns)?;
         self.consume_token(TokenKind::LeftParenthesis)?;
@@ -358,7 +422,9 @@ impl<'a> SemanticAnalyzer<'a> {
         let response = self
             .consume_token(TokenKind::Identifier)?
             .expect("response type does not exist");
-        messages.insert(response.clone());
+        if response.as_str() != "google.protobuf.Empty"{
+            messages.insert(response.clone());
+        }
         self.consume_token(TokenKind::RightParenthesis)?;
         self.consume_token(TokenKind::Semicolon)?;
         Ok(RpcDefinition {
@@ -464,15 +530,46 @@ fn ast_to_code(writer: &mut BufWriter<File>, ast: Node, package: &mut String) ->
 
                 // Write method code.
                 for rpc in rpcs {
-                    let method = format!(
-                        method_template!(),
-                        method = rpc.method.to_lowercase(),
-                        client_name = format!("{}Client", name),
-                        fq_request_type = [package.as_str(), rpc.request.as_str()].join("."),
-                        fq_response_type = [package.as_str(), rpc.response.as_str()].join("."),
-                        request_type = rpc.request,
-                        response_type = rpc.response
-                    );
+                    let method = match (rpc.request.as_str(), rpc.response.as_str()){
+                        ("google.protobuf.Empty", "google.protobuf.Empty") => {
+                            format!(
+                                empty_input_method_template!(),
+                                method = rpc.method.to_lowercase(),
+                                client_name = format!("{}Client", name),
+                                response_handler = EMPTY_RESPONSE_HANDLER
+                            )
+                        }
+                        ("google.protobuf.Empty", _) => {
+                            let response_handler = format!(non_empty_response_handler!(), fq_response_type = [package.as_str(), rpc.response.as_str()].join("."), response_type = rpc.response);
+                            format!(
+                                empty_input_method_template!(),
+                                method = rpc.method.to_lowercase(),
+                                client_name = format!("{}Client", name),
+                                response_handler = response_handler
+                            )
+                        }
+                        (_, "google.protobuf.Empty") => {
+                            format!(
+                                method_template!(),
+                                method = rpc.method.to_lowercase(),
+                                client_name = format!("{}Client", name),
+                                fq_request_type = [package.as_str(), rpc.request.as_str()].join("."),
+                                request_type = rpc.request,
+                                response_handler = EMPTY_RESPONSE_HANDLER
+                            )
+                        }
+                        _ => {
+                            let response_handler = format!(non_empty_response_handler!(), fq_response_type = [package.as_str(), rpc.response.as_str()].join("."), response_type = rpc.response);
+                            format!(
+                                method_template!(),
+                                method = rpc.method.to_lowercase(),
+                                client_name = format!("{}Client", name),
+                                fq_request_type = [package.as_str(), rpc.request.as_str()].join("."),
+                                request_type = rpc.request,
+                                response_handler = response_handler
+                            )
+                        }
+                    };
                     writer.write_all(method.as_bytes())?;
                 }
                 Ok(())

@@ -6,6 +6,7 @@ syntax="proto3";
 
 package example_service;
 
+import "google/protobuf/empty.proto";
 import "q.proto";
 
 // Available menu.
@@ -55,8 +56,13 @@ message Total{
 
 // Service mocking a restaurant order system.
 service Restaurant{
+  // Customer submits an order and a kitchen returns a response.
   rpc Submit(Order) returns (Acceptance);
+  // Customer finish a meal handing an expense and a restaurant displays a total due
+  //  with an order history.
   rpc Finish(Expense) returns (Total);
+  // Customer forcefully cancels an order.
+  rpc Cancel(Order) returns (google.protobuf.Empty);
 }
 ```
 
@@ -81,19 +87,22 @@ q).grpc.submit[`table`items`ordered_time!(2i; `Menu$`pizza`coke`pizza`sushi; .z.
 accepted| 1
 q).grpc.submit[`table`items`ordered_time!(2i; `Menu$`steak`coke`sushi; .z.p)]
 accepted| 1
+q).grpc.cancel[`table`items`ordered_time!(3i; `Menu$`sushi`pizza`pizza; .z.p)]
+'no order for the table id: 3
+  [0]  .grpc.cancel[`table`items`ordered_time!(3i; `Menu$`sushi`pizza`pizza; .z.p)]
+       ^
+q).grpc.cancel[`table`items`ordered_time!(2i; `Menu$`sushi`pizza`pizza; .z.p)]
 q)receipt: .grpc.finish[enlist[`table]!enlist 2i]
 q)receipt
-history| +`time`item`unit`price!(2022.02.06D13:46:15.572580000 2022.02.06D13:..
-total  | 48.25e
+history| +`time`item`unit`price!(2022.02.12D11:14:50.217026000 2022.02.12D11:..
+total  | 23.25e
 q)receipt `history
 time                          item  unit price
 ----------------------------------------------
-2022.02.06D13:46:15.572580000 pizza 2    7.5  
-2022.02.06D13:46:15.572580000 sushi 1    10   
-2022.02.06D13:46:15.572580000 coke  1    2    
-2022.02.06D13:46:19.538015000 coke  1    2    
-2022.02.06D13:46:19.538015000 sushi 1    10   
-2022.02.06D13:46:19.538015000 steak 1    9.25 
+2022.02.12D11:14:50.217026000 coke  1    2    
+2022.02.12D11:15:03.698417000 steak 1    9.25 
+2022.02.12D11:15:03.698417000 coke  1    2    
+2022.02.12D11:15:03.698417000 sushi 1    10   
 q).grpc.finish[enlist[`table]!enlist 2i]
 'no order for the table id: 2
   [0]  .grpc.finish[enlist[`table]!enlist 2i]
