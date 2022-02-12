@@ -16,12 +16,25 @@ use std::str::Chars;
 //>> Global Variables
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 
-/// File name to output.
-const TARGET_FILE_NAME: &'static str = "../qrpc/src/client/qrpc.rs";
+//%% q %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
 
-/// File header.
-const HEADERS: &'static str = 
-r#"//! This is an auto-generated code by qrpc_build crate.
+/// Name of a q file to generate.
+const TARGET_Q_FILE_NAME: &'static str = "../q/grpc_client_methods.q";
+
+/// Header of q file.
+const Q_FILE_HEADER: &'static str = r#"/
+* @file grpc_client_methods.
+* @overview This is an auto-generated file by qrpc_build crate based on user-specified proto files defining client methods to communicate with a gRPC server.
+\
+"#;
+
+//%% Rust %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
+
+/// Neme of a Rust file to generate.
+const TARGET_RUST_FILE_NAME: &'static str = "../qrpc/src/client/qrpc.rs";
+
+/// Header of Rust file.
+const RUST_FILE_HEADER: &'static str = r#"//! This is an auto-generated code by qrpc_build crate.
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 //>> Load Libraries
@@ -38,8 +51,7 @@ use tonic::Request;
 "#;
 
 /// Definition of error buffer.
-const ERROR_BUFFER: &'static str =
-r#"
+const ERROR_BUFFER: &'static str = r#"
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 //>> Global Variables
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
@@ -55,8 +67,7 @@ static ERROR_BUFFER: Lazy<RwLock<String>> = Lazy::new(||{
 "#;
 
 /// Template of a response handler for an exported client methods called from q with an empty response.
-const EMPTY_RESPONSE_HANDLER: &'static str = 
-r#" Ok(_response) => {{
+const EMPTY_RESPONSE_HANDLER: &'static str = r#" Ok(_response) => {{
                         new_null()
                     }}"#;
 
@@ -64,14 +75,44 @@ r#" Ok(_response) => {{
 //>> Macros
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 
+//%% q %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
+
+/// Template of defining enum message in q file.
+/// # Parameters
+/// - `source`: Name of a protobuf enum message.
+/// - `elements`: List of field names of the enum message.
+macro_rules! enum_template {
+    () => {
+        r#"
+// Source of enum message {source}.
+{source}: `{elements};
+"#
+    };
+}
+
+/// Template to load Rust function to q.
+/// # Parameters
+/// - `method`: Name of an RPC.
+macro_rules! method_load_template {
+    () => {
+        r#"
+// Load gRPC client method {method}.
+.grpc.{method}: `libqrpc 2: (`{method}; 1);
+"#
+    };
+}
+
+//%% Rust %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
+
 /// Lines to import client type and necessary messages.
+/// # Parameters
 /// - `package`: Package name of proto file.
 /// - `snake_case_service`: Snake case name of the service.
 /// - `service`: Service name.
 /// - `messages`: Comma delimited message types to use.
 macro_rules! import_template {
     () => {
-r#"
+        r#"
 use super::proto::{package}::{snake_case_service}_client::{service}Client;
 use super::proto::{package}::{{{messages}}};
 "#
@@ -79,6 +120,7 @@ use super::proto::{package}::{{{messages}}};
 }
 
 /// Template of a response handler for an exported client methods called from q with a non-empty response.
+/// # Parameters
 /// - `fq_response_type`: Fully qualified response type name starting from package name.
 /// - `response_type`: Response type.
 macro_rules! non_empty_response_handler {
@@ -97,6 +139,7 @@ r#" Ok(response) => {{
 }
 
 /// Template of exported client methods called from q.
+/// # Parameters
 /// - `method`: gRPC service request method.
 /// - `client_name`: Client type in the form of [service]Clients.
 /// - `fq_request_type`: Fully qualified request type name starting from package name.
@@ -144,6 +187,7 @@ pub extern "C" fn {method}_(message: K) -> K {{
 }
 
 /// Template of exported client methods called from q which uses `google.protobuf.Empty` as a request type.
+/// # Parameters
 /// - `method`: gRPC service request method.
 /// - `client_name`: Client type in the form of [service]Clients.
 /// - `response_handler`: Pre-built response handler with fully-qualified response type and response type.
@@ -187,13 +231,18 @@ pub extern "C" fn {method}_(_message: K) -> K {{
 /// Token kinds to recognize in this crate.
 #[derive(PartialEq)]
 enum TokenKind {
+    /// Initial token at initialization of semantic analyzer.
     Start,
+    /// Marker token placed at the end of tokenized results.
     End,
     Package,
     Service,
     Rpc,
     Returns,
+    Enum,
     Identifier,
+    Number(u8),
+    Equal,
     LeftParenthesis,
     RightParenthesis,
     LeftBrace,
@@ -240,6 +289,13 @@ enum Node {
         /// List of RPC definitions.
         rpcs: Vec<RpcDefinition>,
     },
+    /// Enum message definition.
+    Enum {
+        /// Enum message name.
+        name: String,
+        /// Elements in the enum definition.
+        elements: Vec<String>,
+    },
 }
 
 /// Analyze a token stream and build Abstract Syntax Tree.
@@ -263,9 +319,12 @@ impl fmt::Display for TokenKind {
             Self::End => write!(f, "[end]"),
             Self::Package => write!(f, "package"),
             Self::Identifier => write!(f, "[identifier]"),
+            Self::Number(_) => write!(f, "[number]"),
+            Self::Enum => write!(f, "enum"),
             Self::Rpc => write!(f, "rpc"),
             Self::Service => write!(f, "service"),
             Self::Returns => write!(f, "returns"),
+            Self::Equal => write!(f, "="),
             Self::LeftParenthesis => write!(f, "("),
             Self::RightParenthesis => write!(f, ")"),
             Self::LeftBrace => write!(f, "{{"),
@@ -322,6 +381,20 @@ impl<'a> Tokenizer<'a> {
         Ok(identifier_to_token(identifier))
     }
 
+    /// Tokenize an integer number.
+    fn tokenize_number(&mut self) -> io::Result<Token> {
+        let mut number = 0;
+        while let Some(&ch) = self.input.peek() {
+            if ch.is_ascii_digit() {
+                number += 10 * number + (ch as u8 - 48);
+                self.advance();
+            } else {
+                break;
+            }
+        }
+        Ok(Token::new(TokenKind::Number(number), None))
+    }
+
     /// Tokenize a line.
     fn next_token(&mut self) -> io::Result<Token> {
         while let Some(ch) = self.input.peek() {
@@ -329,6 +402,8 @@ impl<'a> Tokenizer<'a> {
                 self.skip_whitespace();
             } else if ch.is_ascii_alphabetic() {
                 return self.tokenize_identifier();
+            } else if ch.is_ascii_digit() {
+                return self.tokenize_number();
             } else {
                 match ch {
                     '(' => {
@@ -350,6 +425,10 @@ impl<'a> Tokenizer<'a> {
                     ';' => {
                         self.advance();
                         return Ok(Token::new(TokenKind::Semicolon, None));
+                    }
+                    '=' => {
+                        self.advance();
+                        return Ok(Token::new(TokenKind::Equal, None));
                     }
                     _ => {
                         return Err(Error::new(
@@ -401,6 +480,8 @@ impl<'a> SemanticAnalyzer<'a> {
     /// ```text
     /// rpc method(request) returns (response)
     /// ```
+    /// # Parameters
+    /// - `messages`: Set of message names associated with a service.
     fn parse_rpc(&mut self, messages: &mut HashSet<String>) -> io::Result<RpcDefinition> {
         self.consume_token(TokenKind::Rpc)?;
         // Get method name
@@ -412,7 +493,7 @@ impl<'a> SemanticAnalyzer<'a> {
         let request = self
             .consume_token(TokenKind::Identifier)?
             .expect("request type does not exist");
-        if request.as_str() != "google.protobuf.Empty"{
+        if request.as_str() != "google.protobuf.Empty" {
             messages.insert(request.clone());
         }
         self.consume_token(TokenKind::RightParenthesis)?;
@@ -422,7 +503,7 @@ impl<'a> SemanticAnalyzer<'a> {
         let response = self
             .consume_token(TokenKind::Identifier)?
             .expect("response type does not exist");
-        if response.as_str() != "google.protobuf.Empty"{
+        if response.as_str() != "google.protobuf.Empty" {
             messages.insert(response.clone());
         }
         self.consume_token(TokenKind::RightParenthesis)?;
@@ -432,6 +513,22 @@ impl<'a> SemanticAnalyzer<'a> {
             request,
             response,
         })
+    }
+
+    /// Parse enum field definition.
+    /// ```text
+    /// name = field_number;
+    /// ```
+    /// # Parameters
+    /// - `field_index`: Field index in an enum message.
+    fn parse_enum(&mut self, field_index: u8) -> io::Result<String> {
+        let field = self
+            .consume_token(TokenKind::Identifier)?
+            .expect("field name does not exist");
+        self.consume_token(TokenKind::Equal)?;
+        self.consume_token(TokenKind::Number(field_index))?;
+        self.consume_token(TokenKind::Semicolon)?;
+        Ok(field)
     }
 
     /// Parse package statement or service definition.
@@ -475,6 +572,26 @@ impl<'a> SemanticAnalyzer<'a> {
                     rpcs: rpc_definitions,
                 })
             }
+            TokenKind::Enum => {
+                // Enum node
+                self.consume_token(TokenKind::Enum)?;
+                // Get enum message name
+                let enum_name = self
+                    .consume_token(TokenKind::Identifier)?
+                    .expect("enum name does not exist");
+                self.consume_token(TokenKind::LeftBrace)?;
+                let mut index = 0;
+                let mut elements = Vec::new();
+                while self.token.kind == TokenKind::Identifier {
+                    elements.push(self.parse_enum(index)?);
+                    index += 1;
+                }
+                self.consume_token(TokenKind::RightBrace)?;
+                Ok(Node::Enum {
+                    name: enum_name,
+                    elements,
+                })
+            }
             _ => Err(Error::new(
                 ErrorKind::InvalidInput,
                 "only package or service definitions are to be parsed",
@@ -494,12 +611,18 @@ fn identifier_to_token(identifier: String) -> Token {
         "service" => Token::new(TokenKind::Service, None),
         "rpc" => Token::new(TokenKind::Rpc, None),
         "returns" => Token::new(TokenKind::Returns, None),
+        "enum" => Token::new(TokenKind::Enum, None),
         _ => Token::new(TokenKind::Identifier, Some(identifier)),
     }
 }
 
 /// Consume AST and convert it to code.
-fn ast_to_code(writer: &mut BufWriter<File>, ast: Node, package: &mut String) -> io::Result<()> {
+fn ast_to_code(
+    rust_file_writer: &mut BufWriter<File>,
+    q_file_writer: &mut BufWriter<File>,
+    ast: Node,
+    package: &mut String,
+) -> io::Result<()> {
     match ast {
         Node::Package(pkg) => {
             // Store package name
@@ -526,11 +649,11 @@ fn ast_to_code(writer: &mut BufWriter<File>, ast: Node, package: &mut String) ->
                     service = name.as_str(),
                     messages = messages.join(",")
                 );
-                writer.write_all(import.as_bytes())?;
+                rust_file_writer.write_all(import.as_bytes())?;
 
                 // Write method code.
                 for rpc in rpcs {
-                    let method = match (rpc.request.as_str(), rpc.response.as_str()){
+                    let method = match (rpc.request.as_str(), rpc.response.as_str()) {
                         ("google.protobuf.Empty", "google.protobuf.Empty") => {
                             format!(
                                 empty_input_method_template!(),
@@ -540,7 +663,12 @@ fn ast_to_code(writer: &mut BufWriter<File>, ast: Node, package: &mut String) ->
                             )
                         }
                         ("google.protobuf.Empty", _) => {
-                            let response_handler = format!(non_empty_response_handler!(), fq_response_type = [package.as_str(), rpc.response.as_str()].join("."), response_type = rpc.response);
+                            let response_handler = format!(
+                                non_empty_response_handler!(),
+                                fq_response_type =
+                                    [package.as_str(), rpc.response.as_str()].join("."),
+                                response_type = rpc.response
+                            );
                             format!(
                                 empty_input_method_template!(),
                                 method = rpc.method.to_lowercase(),
@@ -553,27 +681,45 @@ fn ast_to_code(writer: &mut BufWriter<File>, ast: Node, package: &mut String) ->
                                 method_template!(),
                                 method = rpc.method.to_lowercase(),
                                 client_name = format!("{}Client", name),
-                                fq_request_type = [package.as_str(), rpc.request.as_str()].join("."),
+                                fq_request_type =
+                                    [package.as_str(), rpc.request.as_str()].join("."),
                                 request_type = rpc.request,
                                 response_handler = EMPTY_RESPONSE_HANDLER
                             )
                         }
                         _ => {
-                            let response_handler = format!(non_empty_response_handler!(), fq_response_type = [package.as_str(), rpc.response.as_str()].join("."), response_type = rpc.response);
+                            let response_handler = format!(
+                                non_empty_response_handler!(),
+                                fq_response_type =
+                                    [package.as_str(), rpc.response.as_str()].join("."),
+                                response_type = rpc.response
+                            );
                             format!(
                                 method_template!(),
                                 method = rpc.method.to_lowercase(),
                                 client_name = format!("{}Client", name),
-                                fq_request_type = [package.as_str(), rpc.request.as_str()].join("."),
+                                fq_request_type =
+                                    [package.as_str(), rpc.request.as_str()].join("."),
                                 request_type = rpc.request,
                                 response_handler = response_handler
                             )
                         }
                     };
-                    writer.write_all(method.as_bytes())?;
+                    rust_file_writer.write_all(method.as_bytes())?;
+
+                    // Write a line to load Rust function.
+                    let method_load_line =
+                        format!(method_load_template!(), method = rpc.method.to_lowercase());
+                    q_file_writer.write_all(method_load_line.as_bytes())?;
                 }
                 Ok(())
             }
+        }
+        Node::Enum { name, elements } => {
+            // Write enum definition
+            let elements = elements.join("`");
+            let enum_definition = format!(enum_template!(), source = name, elements = elements);
+            q_file_writer.write_all(enum_definition.as_bytes())
         }
     }
 }
@@ -613,28 +759,48 @@ fn camel_to_snake(camel: &str) -> String {
 
 /// Generate Rust code of gRPC client methods called from q.
 pub fn generate_code(files: &[impl AsRef<Path>], includes: &[impl AsRef<Path>]) -> io::Result<()> {
-    // Open write target file.
-    let output = OpenOptions::new()
+    // Open q target file.
+    let q_output = OpenOptions::new()
         .read(false)
         .write(true)
+        .truncate(true)
         .create(true)
-        .open(TARGET_FILE_NAME)?;
-    let mut writer = BufWriter::new(output);
+        .open(TARGET_Q_FILE_NAME)?;
+    let mut q_file_writer = BufWriter::new(q_output);
+
+    // Write a header of q file.
+    q_file_writer.write_all(Q_FILE_HEADER.as_bytes())?;
+
+    // Open Rust target file.
+    let rust_output = OpenOptions::new()
+        .read(false)
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(TARGET_RUST_FILE_NAME)?;
+    let mut rust_file_writer = BufWriter::new(rust_output);
 
     // Write headers.
-    writer.write_all(HEADERS.as_bytes())?;
+    rust_file_writer.write_all(RUST_FILE_HEADER.as_bytes())?;
 
     // Write definition of error buffer.
-    writer.write_all(ERROR_BUFFER.as_bytes())?;
+    rust_file_writer.write_all(ERROR_BUFFER.as_bytes())?;
 
     // Read inputs and check service related information.
     files
         .iter()
         .map(|file| {
-            // Only one package name exists per file.
+            // Package name. Only one package name exists per file.
             let mut package = String::new();
+            // String to parse service definition.
             let mut service_definition = String::new();
+            // String to parse enum definition.
+            let mut enum_definition = String::new();
+            // Track service definition scope.
             let mut in_service_definition = false;
+            // Track enum message definition scope.
+            let mut in_enum_definition = false;
+            // Try to open file and parse.
             let found = includes
                 .iter()
                 .map(|include_path| {
@@ -655,7 +821,12 @@ pub fn generate_code(files: &[impl AsRef<Path>], includes: &[impl AsRef<Path>]) 
                             if line.trim().starts_with("package") {
                                 let mut analyzer = SemanticAnalyzer::new(line.as_str())?;
                                 let ast = analyzer.parse()?;
-                                ast_to_code(&mut writer, ast, &mut package)?;
+                                ast_to_code(
+                                    &mut rust_file_writer,
+                                    &mut q_file_writer,
+                                    ast,
+                                    &mut package,
+                                )?;
                                 line.clear();
                             } else if line.trim().starts_with("service") {
                                 in_service_definition = true;
@@ -663,6 +834,10 @@ pub fn generate_code(files: &[impl AsRef<Path>], includes: &[impl AsRef<Path>]) 
                                 line.clear();
                             } else if line.trim().starts_with("rpc") {
                                 service_definition += line.as_str();
+                                line.clear();
+                            } else if line.trim().starts_with("enum") {
+                                in_enum_definition = true;
+                                enum_definition += line.as_str();
                                 line.clear();
                             } else if line.trim().starts_with("}") {
                                 if in_service_definition {
@@ -672,10 +847,43 @@ pub fn generate_code(files: &[impl AsRef<Path>], includes: &[impl AsRef<Path>]) 
                                     let mut analyzer =
                                         SemanticAnalyzer::new(service_definition.as_str())?;
                                     let ast = analyzer.parse()?;
-                                    ast_to_code(&mut writer, ast, &mut package)?;
+                                    ast_to_code(
+                                        &mut rust_file_writer,
+                                        &mut q_file_writer,
+                                        ast,
+                                        &mut package,
+                                    )?;
+                                    // Escape from service
+                                    service_definition.clear();
+                                    in_service_definition = false;
+                                } else if in_enum_definition {
+                                    // Closing brace of a enum definition
+                                    enum_definition += line.as_str();
+                                    // Analyze and generate code.
+                                    let mut analyzer =
+                                        SemanticAnalyzer::new(enum_definition.as_str())?;
+                                    let ast = analyzer.parse()?;
+                                    ast_to_code(
+                                        &mut rust_file_writer,
+                                        &mut q_file_writer,
+                                        ast,
+                                        &mut package,
+                                    )?;
+                                    // Escape from enum
+                                    enum_definition.clear();
+                                    in_enum_definition = false;
+                                } else {
+                                    // Nothing to do
                                 }
                                 line.clear();
                             } else {
+                                if in_enum_definition
+                                    && line.contains("=")
+                                    && line.trim().ends_with(";")
+                                {
+                                    // Enum field definition `field = number;`
+                                    enum_definition += line.as_str();
+                                }
                                 line.clear();
                             }
                         }
