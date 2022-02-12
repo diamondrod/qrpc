@@ -87,6 +87,8 @@ q).grpc.submit[`table`items`ordered_time!(2i; `Menu$`pizza`coke`pizza`sushi; .z.
 accepted| 1
 q).grpc.submit[`table`items`ordered_time!(2i; `Menu$`steak`coke`sushi; .z.p)]
 accepted| 1
+q).grpc.submit[`table`items`ordered_time!(2i; `Menu$`steak`steak`chips`coke`spaghetti`hamburger`chips`salad`pizza`sushi; .z.p)]
+reason| "too many items. must be less than 10"
 q).grpc.cancel[`table`items`ordered_time!(3i; `Menu$`sushi`pizza`pizza; .z.p)]
 'no order for the table id: 3
   [0]  .grpc.cancel[`table`items`ordered_time!(3i; `Menu$`sushi`pizza`pizza; .z.p)]
