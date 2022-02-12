@@ -79,6 +79,9 @@ Open restaurant
 ## Client
 
 This is the main portion of this library. We will place some orders to the restaurant server and then go to a cacher.
+
+*Note: bool field appears only if the value is true.*
+
 ```q
 qrpc]$ q/grpc.q
 q).grpc.set_endpoint["http://localhost:3160"]
