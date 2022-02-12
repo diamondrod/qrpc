@@ -2,7 +2,7 @@ target/
 Cargo.lock
 */target
 */Cargo.lock
-qrpc/q/grpc_client_methods.q
+q/grpc_client_methods.q
 qrpc/src/client/qrpc.rs
 qrpc/src/client/proto/example.rs
 qrpc/src/client/proto/example_service.rs

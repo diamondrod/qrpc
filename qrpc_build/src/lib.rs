@@ -149,7 +149,7 @@ macro_rules! method_template {
     () => {
         r#"
 #[no_mangle]
-pub extern "C" fn {method}_(message: K) -> K {{
+pub extern "C" fn {method}(message: K) -> K {{
     let message_descriptor = PROTO_FILE_DESCRIPTOR
         .get_message_by_name("{fq_request_type}")
         .unwrap();
@@ -195,7 +195,7 @@ macro_rules! empty_input_method_template {
     () => {
         r#"
 #[no_mangle]
-pub extern "C" fn {method}_(_message: K) -> K {{
+pub extern "C" fn {method}(_message: K) -> K {{
     let runtime = Builder::new_current_thread()
         .enable_time()
         .enable_io()
