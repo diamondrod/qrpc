@@ -10,7 +10,7 @@ q/kdb+ implements propriate protocol to communicate among q processes and HTTP(1
 
 When your processes have limited number of message types and furthermore you want to check the validity of contents, HTTP is not suitable for it. Then gRPC came to play, which is based on HTTP2 and afford to specify solid message types.
 
-Users of q/kdb+ might have moarned that they could not use gRPC in q and used HTTP without any options hacking erroneous messages leaning deeply against a chair-back. This library is a gRPC client implementation of q to pour water ("of life", if you will) to such a people.
+Users of q/kdb+ might have moarned that they could not use gRPC in q and used HTTP without any options hacking errorneous messages leaning deeply against a chair-back. This library is a gRPC client implementation of q to pour water ("of life", if you will) to such a people.
 
 ## Features
 
@@ -61,6 +61,17 @@ will define enum variable `Menu` in  the same file as the generated one for serv
 // Source of enum message Menu.
 Menu: `smile`pizza`spaghetti`salad`steak`sushi`hamburger`chips`coke;
 ```
+
+## Install
+
+Ordinary `cargo` command builds a library for you.
+```sh
+qrpc]$ cargo build --release
+qrpc]$ cp target/release/libqrpc.so .
+qrpc]$ q q/grpc.q
+q)
+```
+And you are ready:)
 
 ## Table of Contents
 
