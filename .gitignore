@@ -8,11 +8,12 @@ qrpc/src/client/proto/example.rs
 qrpc/src/client/proto/example_service.rs
 qrpc/src/client/proto/google.protobuf.rs
 qrpc/src/client/proto/q.rs
+qrpc/qrpc_fd_set
 examples/restaurant/target
 examples/restaurant/Cargo.lock
 examples/restaurant/src/proto/example_service.rs
 examples/restaurant/src/proto/google.protobuf.rs
 examples/restaurant/src/proto/q.rs
 libqrpc.so
-qrpc/qrpc_fd_set
+tests/libqrpc.so
 

@@ -67,3 +67,4 @@ Menu: `smile`pizza`spaghetti`salad`steak`sushi`hamburger`chips`coke;
 1. [Type Mapping](docs/type_mapping.md)
 2. [Message Examples](docs/message_examples.md)
 3. [gRPC Example](docs/grpc_example.md)
+4. [Test](docs/test.md)

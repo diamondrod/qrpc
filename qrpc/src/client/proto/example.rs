@@ -138,6 +138,105 @@ pub struct Basket {
     #[prost(enumeration = "Vegetable", tag = "3")]
     pub snack: i32,
 }
+/// Test Messages
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlyBool {
+    #[prost(bool, tag = "1")]
+    pub bool1: bool,
+    #[prost(bool, tag = "2")]
+    pub bool2: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlyInt {
+    #[prost(int32, tag = "1")]
+    pub int1: i32,
+    #[prost(sint32, tag = "2")]
+    pub int2: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlyLong {
+    #[prost(sint64, tag = "1")]
+    pub long1: i64,
+    #[prost(int64, tag = "2")]
+    pub long2: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlyReal {
+    #[prost(float, tag = "1")]
+    pub real1: f32,
+    #[prost(float, tag = "2")]
+    pub real2: f32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlyFloat {
+    #[prost(double, tag = "1")]
+    pub float1: f64,
+    #[prost(double, tag = "2")]
+    pub float2: f64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlySymbol {
+    #[prost(message, optional, tag = "1")]
+    pub symbol1: ::core::option::Option<super::q::Symbol>,
+    #[prost(message, optional, tag = "2")]
+    pub symbol2: ::core::option::Option<super::q::Symbol>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlyTimestamp {
+    #[prost(message, optional, tag = "1")]
+    pub timestamp1: ::core::option::Option<super::q::Timestamp>,
+    #[prost(message, optional, tag = "2")]
+    pub timestamp2: ::core::option::Option<super::q::Timestamp>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlyMonth {
+    #[prost(message, optional, tag = "1")]
+    pub month1: ::core::option::Option<super::q::Month>,
+    #[prost(message, optional, tag = "2")]
+    pub month2: ::core::option::Option<super::q::Month>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlyDate {
+    #[prost(message, optional, tag = "1")]
+    pub date1: ::core::option::Option<super::q::Date>,
+    #[prost(message, optional, tag = "2")]
+    pub date2: ::core::option::Option<super::q::Date>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlyDatetime {
+    #[prost(message, optional, tag = "1")]
+    pub datetime1: ::core::option::Option<super::q::Datetime>,
+    #[prost(message, optional, tag = "2")]
+    pub datetime2: ::core::option::Option<super::q::Datetime>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlyTimespan {
+    #[prost(message, optional, tag = "1")]
+    pub timespan1: ::core::option::Option<super::q::Timespan>,
+    #[prost(message, optional, tag = "2")]
+    pub timespan2: ::core::option::Option<super::q::Timespan>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlyMinute {
+    #[prost(message, optional, tag = "1")]
+    pub minute1: ::core::option::Option<super::q::Minute>,
+    #[prost(message, optional, tag = "2")]
+    pub minute2: ::core::option::Option<super::q::Minute>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlySecond {
+    #[prost(message, optional, tag = "1")]
+    pub second1: ::core::option::Option<super::q::Second>,
+    #[prost(message, optional, tag = "2")]
+    pub second2: ::core::option::Option<super::q::Second>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OnlyTime {
+    #[prost(message, optional, tag = "1")]
+    pub time1: ::core::option::Option<super::q::Time>,
+    #[prost(message, optional, tag = "2")]
+    pub time2: ::core::option::Option<super::q::Time>,
+}
 /// Message representing available fruit.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

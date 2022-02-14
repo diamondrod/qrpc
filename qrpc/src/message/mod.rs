@@ -716,10 +716,10 @@ pub(crate) fn decode_message(dynamic_message: &DynamicMessage, fields: impl Exac
                             qtype::NULL =>{
                                 list_type = qtype::REAL_LIST;
                                 simple = new_list(qtype::REAL_LIST, 0);
-                                simple.push_raw(*v as f64).unwrap();
+                                simple.push_raw(*v).unwrap();
                             },
                             qtype::REAL_LIST => {
-                                simple.push_raw(*v as f64).unwrap();
+                                simple.push_raw(*v).unwrap();
                             },
                             qtype::COMPOUND_LIST => {
                                 compound.push(new_real(*v as f64)).unwrap();

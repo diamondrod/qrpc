@@ -106,3 +106,74 @@ message Basket{
   double price = 2;
   vegetable snack = 3;
 }
+
+// Test Messages
+message OnlyBool{
+  bool bool1 = 1;
+  bool bool2 = 2;
+}
+
+message OnlyInt{
+  int32 int1 = 1;
+  sint32 int2 = 2;
+}
+
+message OnlyLong{
+  sint64 long1 = 1;
+  int64 long2 = 2;
+}
+
+message OnlyReal{
+  float real1 = 1;
+  float real2 = 2;
+}
+
+message OnlyFloat{
+  double float1 = 1;
+  double float2 = 2;
+}
+
+message OnlySymbol{
+  q.symbol symbol1 = 1;
+  q.symbol symbol2 = 2;
+}
+
+message OnlyTimestamp{
+  q.timestamp timestamp1 = 1;
+  q.timestamp timestamp2 = 2; 
+}
+
+message OnlyMonth{
+  q.month month1 = 1;
+  q.month month2 = 2;
+}
+
+message OnlyDate{
+  q.date date1 = 1;
+  q.date date2 = 2;
+}
+
+message OnlyDatetime{
+  q.datetime datetime1 = 1;
+  q.datetime datetime2 = 2;
+}
+
+message OnlyTimespan{
+  q.timespan timespan1 = 1;
+  q.timespan timespan2 = 2;
+}
+
+message OnlyMinute{
+  q.minute minute1 = 1;
+  q.minute minute2 = 2;
+}
+
+message OnlySecond{
+  q.second second1 = 1;
+  q.second second2 = 2;
+}
+
+message OnlyTime{
+  q.time time1 = 1;
+  q.time time2 = 2;
+}

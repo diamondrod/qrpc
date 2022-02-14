@@ -212,13 +212,9 @@ month_f| 2022.02m
 
 ## Enum Example
 
-*Notes:*
-- *You must define enum variables whose names are identical to the message type (case sensitive).*
-- *default enum values are trimmed by underlying protobuf library at the stage of encoding.*
+*Note: default enum values are trimmed by underlying protobuf library at the stage of encoding.*
 
 ```q
-q)fruit: `unused`apple`banana`citrus`dragon_fruit
-q)vegetable: `unused`tomato`cabage`mashroom
 q)encoded: .grpc.encode[`example.Basket; `desserts`price`snack!(`fruit$`apple`banana; 103.2; `vegetable$`tomato)]
 q).grpc.decode[`example.Basket; encoded]
 basket| `fruit$`apple`banana
