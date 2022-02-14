@@ -68,11 +68,10 @@ service Restaurant{
 
 ## Server
 
-An example gRPC server which uses the same proto file is provided in `examples/restaurant` directory. You can run the server following the `README` there. Here we just launch a container.
+An example gRPC server which uses the same proto file is provided in `examples/restaurant` directory. Here we just run an executable with `cargo` command.
 ```sh
 qrpc]$ cd examples/restaurant
-restaurant]$ ./scripts/build.sh
-restaurant]$ ./scripts/run.sh
+restaurant]$ cargo run
 Open restaurant
 ```
 
