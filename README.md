@@ -62,6 +62,17 @@ will define enum variable `Menu` in  the same file as the generated one for serv
 Menu: `smile`pizza`spaghetti`salad`steak`sushi`hamburger`chips`coke;
 ```
 
+## Install
+
+Ordinary `cargo` command builds a library for you.
+```sh
+qrpc]$ cargo build --release
+qrpc]$ cp target/release/libqrpc.so .
+qrpc]$ q q/grpc.q
+q)
+```
+And you are ready:)
+
 ## Table of Contents
 
 1. [Type Mapping](docs/type_mapping.md)
