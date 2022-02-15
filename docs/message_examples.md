@@ -1,6 +1,9 @@
 # Message Examples
 
-In the examples below we use example proto file `example.proto` wchich exists under `proto/` directory.
+In the examples below we use example proto file `example.proto` wchich exists under `proto/` directory. In order to include this directory, set:
+```sh
+export QRPC_PROTO_DIR=your_path/qrpc/proto
+```
 
 ```protobuf
 syntax="proto3";

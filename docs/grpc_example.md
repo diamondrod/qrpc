@@ -1,6 +1,10 @@
 # gRPC Example
 
-In this example we use the `example_service.proto` in `proto/` directory.
+In this example we use the `example_service.proto` in `proto/` directory. In order to include this directory, set:
+```sh
+export QRPC_PROTO_DIR=your_path/qrpc/proto
+```
+
 ```protobuf
 syntax="proto3";
 
