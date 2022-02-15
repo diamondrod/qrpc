@@ -6,15 +6,15 @@ gRPC client for q/kdb+.
 
 ## Introduction
 
-q/kdb+ implements propriate protocol to communicate among q processes and HTTP(1) protocol. There are some client library for q which implements the propriate protocol but t is not suitable to integrate in a large system. On the other hand it is rare that HTTP becomes a main protocol in this age.
+q/kdb+ implements appropriate protocols to communicate between q processes using HTTP(1) protocol. There are some client libraries for q which implement the appropriate protocol but they are not suitable for integration in a large system. On the other hand it is now rare for HTTP to be a main protocol.
 
-When your processes have limited number of message types and furthermore you want to check the validity of contents, HTTP is not suitable for it. Then gRPC came to play, which is based on HTTP2 and afford to specify solid message types.
+When your processes have a limited number of message types and furthermore you want to check the validity of contents, HTTP is unsuitable. Then gRPC comes into play, based on HTTP2 and allowing you to specify specific message types.
 
-Users of q/kdb+ might have moarned that they could not use gRPC in q and used HTTP without any options hacking errorneous messages leaning deeply against a chair-back. This library is a gRPC client implementation of q to pour water ("of life", if you will) to such a people.
+Users of q/kdb+ might have complained they could not use gRPC in q and used HTTP without any options, hacking erroneous messages leaning deeply against a chair-back. This library is a gRPC client implementation of q to pour water ("of life", if you will) to such a people.
 
 ## Features
 
-As protobuf message is strictly typed based on proto files, `qrpc` needs to compile source proto files at building a shared library. For this reason users have to put their proto files to use for gRPC under a directory specified by an environmental variable `QRPC_PROTO_DIR`.
+As a protobuf message is strictly typed based on proto files, `qrpc` needs to compile source proto files at building a shared library. For this reason users have to put their proto files to use for gRPC under a directory specified by an environmental variable `QRPC_PROTO_DIR`.
 
 And lo, and behold, `qrpc` automatically generates Rust code for gRPC client methods defined in `service` in the user input, and of course, q code to load the shared library. For example, services below;
 ```protobuf
