@@ -79,25 +79,27 @@ const EMPTY_RESPONSE_HANDLER: &'static str = r#" Ok(_response) => {{
 
 /// Template of defining enum message in q file.
 /// # Parameters
+/// - `package`: Package name.
 /// - `source`: Name of a protobuf enum message.
 /// - `elements`: List of field names of the enum message.
 macro_rules! enum_template {
     () => {
         r#"
 // Source of enum message {source}.
-{source}: `{elements};
+.grpc.{package}.{source}: `{elements};
 "#
     };
 }
 
 /// Template to load Rust function to q.
 /// # Parameters
+/// - `package`: Package name.
 /// - `method`: Name of an RPC.
 macro_rules! method_load_template {
     () => {
         r#"
-// Load gRPC client method {method}.
-.grpc.{method}: `libqrpc 2: (`{method}; 1);
+// Load gRPC client method {method} in a package {package}.
+.grpc.{package}.{method}: `libqrpc 2: (`{package}_{method}; 1);
 "#
     };
 }
@@ -145,11 +147,11 @@ r#" Ok(response) => {{
 /// - `fq_request_type`: Fully qualified request type name starting from package name.
 /// - `request_type`: Request type.
 /// - `response_handler`: Pre-built response handler with fully-qualified response type and response type.
-macro_rules! method_template {
+macro_rules! non_empty_input_method_template {
     () => {
         r#"
 #[no_mangle]
-pub extern "C" fn {method}(message: K) -> K {{
+pub extern "C" fn {package}_{method}(message: K) -> K {{
     let message_descriptor = PROTO_FILE_DESCRIPTOR
         .get_message_by_name("{fq_request_type}")
         .unwrap();
@@ -195,7 +197,7 @@ macro_rules! empty_input_method_template {
     () => {
         r#"
 #[no_mangle]
-pub extern "C" fn {method}(_message: K) -> K {{
+pub extern "C" fn {package}_{method}(_message: K) -> K {{
     let runtime = Builder::new_current_thread()
         .enable_time()
         .enable_io()
@@ -657,6 +659,7 @@ fn ast_to_code(
                         ("google.protobuf.Empty", "google.protobuf.Empty") => {
                             format!(
                                 empty_input_method_template!(),
+                                package = package.as_str(),
                                 method = rpc.method.to_lowercase(),
                                 client_name = format!("{}Client", name),
                                 response_handler = EMPTY_RESPONSE_HANDLER
@@ -671,6 +674,7 @@ fn ast_to_code(
                             );
                             format!(
                                 empty_input_method_template!(),
+                                package = package.as_str(),
                                 method = rpc.method.to_lowercase(),
                                 client_name = format!("{}Client", name),
                                 response_handler = response_handler
@@ -678,7 +682,8 @@ fn ast_to_code(
                         }
                         (_, "google.protobuf.Empty") => {
                             format!(
-                                method_template!(),
+                                non_empty_input_method_template!(),
+                                package = package.as_str(),
                                 method = rpc.method.to_lowercase(),
                                 client_name = format!("{}Client", name),
                                 fq_request_type =
@@ -695,7 +700,8 @@ fn ast_to_code(
                                 response_type = rpc.response
                             );
                             format!(
-                                method_template!(),
+                                non_empty_input_method_template!(),
+                                package = package.as_str(),
                                 method = rpc.method.to_lowercase(),
                                 client_name = format!("{}Client", name),
                                 fq_request_type =
@@ -709,7 +715,7 @@ fn ast_to_code(
 
                     // Write a line to load Rust function.
                     let method_load_line =
-                        format!(method_load_template!(), method = rpc.method.to_lowercase());
+                        format!(method_load_template!(), package = package.as_str(), method = rpc.method.to_lowercase());
                     q_file_writer.write_all(method_load_line.as_bytes())?;
                 }
                 Ok(())
@@ -718,7 +724,7 @@ fn ast_to_code(
         Node::Enum { name, elements } => {
             // Write enum definition
             let elements = elements.join("`");
-            let enum_definition = format!(enum_template!(), source = name, elements = elements);
+            let enum_definition = format!(enum_template!(), package = *package, source = name, elements = elements);
             q_file_writer.write_all(enum_definition.as_bytes())
         }
     }

@@ -1,6 +1,6 @@
 # gRPC Example
 
-In this example we use the `example_service.proto` in `proto/` directory. In order to include this directory, set:
+In this example we use the `restaurant.proto` in `proto/` directory. In order to include this directory, set:
 ```sh
 export QRPC_PROTO_DIR=your_path/qrpc/proto
 ```
@@ -8,7 +8,7 @@ export QRPC_PROTO_DIR=your_path/qrpc/proto
 ```protobuf
 syntax="proto3";
 
-package example_service;
+package restaurant;
 
 import "google/protobuf/empty.proto";
 import "q.proto";
@@ -89,18 +89,18 @@ This is the main portion of this library. We will place some orders to the resta
 qrpc]$ q/grpc.q
 q).grpc.set_endpoint["http://localhost:3160"]
 "endpoint was set"
-q).grpc.submit[`table`items`ordered_time!(2i; `Menu$`pizza`coke`pizza`sushi; .z.p)]
+q).grpc.restaurant.submit[`table`items`ordered_time!(2i; `Menu$`pizza`coke`pizza`sushi; .z.p)]
 accepted| 1
-q).grpc.submit[`table`items`ordered_time!(2i; `Menu$`steak`coke`sushi; .z.p)]
+q).grpc.restaurant.submit[`table`items`ordered_time!(2i; `Menu$`steak`coke`sushi; .z.p)]
 accepted| 1
-q).grpc.submit[`table`items`ordered_time!(2i; `Menu$`steak`steak`chips`coke`spaghetti`hamburger`chips`salad`pizza`sushi; .z.p)]
+q).grpc.restaurant.submit[`table`items`ordered_time!(2i; `Menu$`steak`steak`chips`coke`spaghetti`hamburger`chips`salad`pizza`sushi; .z.p)]
 reason| "too many items. must be less than 10"
-q).grpc.cancel[`table`items`ordered_time!(3i; `Menu$`sushi`pizza`pizza; .z.p)]
+q).grpc.restaurant.cancel[`table`items`ordered_time!(3i; `Menu$`sushi`pizza`pizza; .z.p)]
 'no order for the table id: 3
-  [0]  .grpc.cancel[`table`items`ordered_time!(3i; `Menu$`sushi`pizza`pizza; .z.p)]
+  [0]  .grpc.restaurant.cancel[`table`items`ordered_time!(3i; `Menu$`sushi`pizza`pizza; .z.p)]
        ^
-q).grpc.cancel[`table`items`ordered_time!(2i; `Menu$`sushi`pizza`pizza; .z.p)]
-q)receipt: .grpc.finish[enlist[`table]!enlist 2i]
+q).grpc.restaurant.cancel[`table`items`ordered_time!(2i; `Menu$`sushi`pizza`pizza; .z.p)]
+q)receipt: .grpc.restaurant.finish[enlist[`table]!enlist 2i]
 q)receipt
 history| +`time`item`unit`price!(2022.02.12D11:14:50.217026000 2022.02.12D11:..
 total  | 23.25e
@@ -111,8 +111,8 @@ time                          item  unit price
 2022.02.12D11:15:03.698417000 steak 1    9.25 
 2022.02.12D11:15:03.698417000 coke  1    2    
 2022.02.12D11:15:03.698417000 sushi 1    10   
-q).grpc.finish[enlist[`table]!enlist 2i]
+q).grpc.restaurant.finish[enlist[`table]!enlist 2i]
 'no order for the table id: 2
-  [0]  .grpc.finish[enlist[`table]!enlist 2i]
+  [0]  .grpc.restaurant.finish[enlist[`table]!enlist 2i]
        ^
 ```

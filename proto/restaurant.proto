@@ -1,6 +1,6 @@
 syntax="proto3";
 
-package example_service;
+package restaurant;
 
 import "google/protobuf/empty.proto";
 import "q.proto";

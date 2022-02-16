@@ -1,2 +1,2 @@
-pub(crate) mod example_service;
 pub(crate) mod q;
+pub(crate) mod restaurant;

@@ -392,25 +392,8 @@ pub(crate) fn decode_list(list: &Vec<Value>, field: &FieldDescriptor, simple: K,
             list.iter().enumerate().for_each(|(i, element)|{
                 q_list_slice[i] = element.as_enum_number().unwrap() as i64;
             });
-            let enum_name = enum_descriptor.name();
-            let sym = unsafe{k(0, str_to_S!(enum_name), KNULL)};
-            if sym.get_type() == qtype::ERROR{
-                // Not defined yet.
-                // Get all enum values
-                let values = &enum_descriptor.enum_descriptor_proto().value.iter().map(|v| v.name.as_ref()).collect::<Vec<_>>();
-                let enum_values = new_list(qtype::SYMBOL_LIST, values.len() as i64);
-                let enum_values_slice = enum_values.as_mut_slice::<S>();
-                values.iter().enumerate().for_each(|(i, value)|{
-                    enum_values_slice[i] = enumerate(str_to_S!(value.unwrap()));
-                });
-                // Set values to sym
-                let function = format!("set[{}]", enum_name);
-                unsafe{k(0, str_to_S!(function), enum_values)};
-            }
-
-            // Free no longer necessary value
-            decrement_reference_count(sym);
-
+            let enum_name = format!(".grpc.{}", enum_descriptor.full_name());
+            // Cast here is valid because enum should be defined at build stage
             let function = format!("{{`{}${} x}}", enum_name, enum_name);
             compound.push(unsafe{k(0, str_to_S!(function), q_list, KNULL)}).unwrap();
         }

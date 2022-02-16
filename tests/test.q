@@ -124,20 +124,20 @@ encoded: .grpc.encode[`example.OneOf; `static`symbol_f!(1b; `strong)];
 
 //%% Enum &&//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
 
-encoded: .grpc.encode[`example.Basket; `desserts`price`snack!(`fruit$`apple`banana; 103.2; `vegetable$`tomato)];
-.test.ASSERT_EQ["enum"; .grpc.decode[`example.Basket; encoded]; `desserts`price`snack!(`fruit$`apple`banana; 103.2; `vegetable$`tomato)]
+encoded: .grpc.encode[`example.Basket; `desserts`price`snack!(`.grpc.example.fruit$`apple`banana; 103.2; `.grpc.example.vegetable$`tomato)];
+.test.ASSERT_EQ["enum"; .grpc.decode[`example.Basket; encoded]; `desserts`price`snack!(`.grpc.example.fruit$`apple`banana; 103.2; `.grpc.example.vegetable$`tomato)]
 
 //%% gRPC %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
 
 .test.ASSERT_EQ["endpoint"; .grpc.set_endpoint["http://localhost:3160"]; "endpoint was set"];
-.test.ASSERT_EQ["order1"; .grpc.submit[`table`items`ordered_time!(2i; `Menu$`pizza`coke`pizza`sushi; 2000.02.01D12:00:30.123456)]; enlist[`accepted]!enlist 1b]
-.test.ASSERT_EQ["order2"; .grpc.submit[`table`items`ordered_time!(2i; `Menu$`steak`coke`sushi; 2000.02.01D12:00:40.123456)];  enlist[`accepted]!enlist 1b]
-.test.ASSERT_EQ["order3"; .grpc.submit[`table`items`ordered_time!(2i; `Menu$`steak`steak`chips`coke`spaghetti`hamburger`chips`salad`pizza`sushi; 2000.02.01D12:05:30.123456)]; enlist[`reason]!enlist "too many items. must be less than 10"]
-.test.ASSERT_ERROR["order - error"; .grpc.cancel; enlist `table`items`ordered_time!(3i; `Menu$`sushi`pizza`pizza; .z.p); "no order for the table id: 3"]
-.test.ASSERT_EQ["cancel"; .grpc.cancel[`table`items`ordered_time!(2i; `Menu$`sushi`pizza`pizza; .z.p)]; (::)]
+.test.ASSERT_EQ["order1"; .grpc.restaurant.submit[`table`items`ordered_time!(2i; `.grpc.restaurant.Menu$`pizza`coke`pizza`sushi; 2000.02.01D12:00:30.123456)]; enlist[`accepted]!enlist 1b]
+.test.ASSERT_EQ["order2"; .grpc.restaurant.submit[`table`items`ordered_time!(2i; `.grpc.restaurant.Menu$`steak`coke`sushi; 2000.02.01D12:00:40.123456)];  enlist[`accepted]!enlist 1b]
+.test.ASSERT_EQ["order3"; .grpc.restaurant.submit[`table`items`ordered_time!(2i; `.grpc.restaurant.Menu$`steak`steak`chips`coke`spaghetti`hamburger`chips`salad`pizza`sushi; 2000.02.01D12:05:30.123456)]; enlist[`reason]!enlist "too many items. must be less than 10"]
+.test.ASSERT_ERROR["order - error"; .grpc.restaurant.cancel; enlist `table`items`ordered_time!(3i; `.grpc.restaurant.Menu$`sushi`pizza`pizza; .z.p); "no order for the table id: 3"]
+.test.ASSERT_EQ["cancel"; .grpc.restaurant.cancel[`table`items`ordered_time!(2i; `.grpc.restaurant.Menu$`sushi`pizza`pizza; .z.p)]; (::)]
 
-receipt: .grpc.finish[enlist[`table]!enlist 2i]
-history: ([] time: 2000.02.01D12:00:30.123456 2000.02.01D12:00:40.123456 2000.02.01D12:00:40.123456 2000.02.01D12:00:40.123456; item: `Menu$`coke`steak`coke`sushi; unit: 4#1; price: 2 9.25 2 10e);
+receipt: .grpc.restaurant.finish[enlist[`table]!enlist 2i]
+history: ([] time: 2000.02.01D12:00:30.123456 2000.02.01D12:00:40.123456 2000.02.01D12:00:40.123456 2000.02.01D12:00:40.123456; item: `.grpc.restaurant.Menu$`coke`steak`coke`sushi; unit: 4#1; price: 2 9.25 2 10e);
 .test.ASSERT_EQ["finish - history"; `time`item xasc receipt `history; `time`item xasc history]
 .test.ASSERT_EQ["finish - total"; receipt `total; 23.25e]
 

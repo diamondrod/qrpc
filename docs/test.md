@@ -1,6 +1,6 @@
 # Test
 
-Unit test utilizes `example.proto` and `example_service.proto` under `proto/`. In order to include this directory, set:
+Unit test utilizes `example.proto` and `restaurant.proto` under `proto/`. In order to include this directory, set:
 ```sh
 export QRPC_PROTO_DIR=your_path/qrpc/proto
 ```

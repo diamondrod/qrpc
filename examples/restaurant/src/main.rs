@@ -5,7 +5,7 @@
 mod proto;
 mod service;
 
-use proto::example_service::restaurant_server::RestaurantServer;
+use proto::restaurant::restaurant_server::RestaurantServer;
 use service::RestaurantManager;
 use tonic::transport::{Error, Server};
 

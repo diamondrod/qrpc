@@ -5,6 +5,6 @@ fn main() -> io::Result<()> {
         .format(true)
         .out_dir("src/proto")
         //.include_file("mod.rs")
-        .compile(&["q.proto", "example_service.proto"], &["proto"])?;
+        .compile(&["q.proto", "restaurant.proto"], &["proto"])?;
     Ok(())
 }

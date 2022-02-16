@@ -19,6 +19,7 @@ fn main() -> io::Result<()> {
       // qrpc_fd_set is created in qRPC/.
       .file_descriptor_set_path("./qrpc_fd_set")
       .out_dir("src/client/proto")
+      .include_file("mod.rs")
       .compile(&proto_files, &[qrpc_proto_dir.clone()])?;
 
     qrpc_build::generate_code(&proto_files, &[qrpc_proto_dir])?;

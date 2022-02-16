@@ -2,8 +2,8 @@
 //>> Load Libraries
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 
-use super::proto::example_service::restaurant_server::Restaurant;
-use super::proto::example_service::{Acceptance, Expense, History, Order, Total};
+use super::proto::restaurant::restaurant_server::Restaurant;
+use super::proto::restaurant::{Acceptance, Expense, History, Order, Total};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use tokio::sync::RwLock;

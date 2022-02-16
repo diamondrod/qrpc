@@ -1,0 +1,68 @@
+syntax="proto3";
+
+package ticket;
+
+import "google/protobuf/empty.proto";
+import "q.proto";
+
+// Class of seat
+enum Class{
+  no_preference = 0;
+  economy = 1;
+  business = 2;
+  first = 3;
+}
+
+// Message to reserve a flight.
+message FlightRequest{
+  // Name of a customer.
+  string name = 1;
+  // Location to depart from.
+  q.symbol departure = 2;
+  // Flight destination.
+  q.symbol destination = 3;
+  // Depature date.
+  q.date date = 4;
+  // The number of seats to reserve.
+  int32 number = 5;
+  // Class of seat.
+  Class class = 6;
+}
+
+// Information of a reserved ticket, or a information to cancel a flight.
+message TicketInfo{
+  // Name of a customer.
+  string name = 1;
+  // Flight ID.
+  q.symbol flight = 2;
+  // Seat ID.
+  q.symbol seat = 3;
+  // Flight date.
+  q.date date = 4;
+}
+
+// Failure response to a flight request.
+message ReservationFailure{
+  string message = 1;
+}
+
+// Response to a flight request.
+message Processed{
+  oneof result{
+    // Reservation success.
+    TicketInfo ticket = 1;
+    // Reservation failure.
+    ReservationFailure failure = 2;
+  };
+}
+
+// Message to notify that cancellation was completed.
+message Cancelled{
+  string message = 1;
+}
+
+// Service to reserve a flight.
+service FlightTicket{
+  rpc Reserve(FlightRequest) returns (Processed);
+  rpc Cancel(TicketInfo) returns (google.protobuf.Empty);
+}

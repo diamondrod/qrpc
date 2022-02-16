@@ -1095,10 +1095,10 @@ pub(crate) fn decode_message(dynamic_message: &DynamicMessage, fields: impl Exac
 
 //%% Utility %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
 
-/// Get underlying enum name from a field descriptor.
+/// Get underlying enum name from a field descriptor with prefix `.grpc.package.`.
 fn get_enum_name(field_descriptor: &FieldDescriptor) -> Option<String>{
     match field_descriptor.kind(){
-        Kind::Enum(enum_descriptor) => Some(enum_descriptor.name().to_string()),
+        Kind::Enum(enum_descriptor) => Some(format!(".grpc.{}",enum_descriptor.full_name().to_string())),
         _ => None
     }
 }
