@@ -218,9 +218,9 @@ month_f| 2022.02m
 *Note: default enum values are trimmed by underlying protobuf library at the stage of encoding.*
 
 ```q
-q)encoded: .grpc.encode[`example.Basket; `desserts`price`snack!(`fruit$`apple`banana; 103.2; `vegetable$`tomato)]
+q)encoded: .grpc.encode[`example.Basket; `desserts`price`snack!(`.grpc.example.fruit$`apple`banana; 103.2; `.grpc.example.vegetable$`tomato)]
 q).grpc.decode[`example.Basket; encoded]
-basket| `fruit$`apple`banana
+basket| `.grpc.example.fruit$`apple`banana
 price | 103.2
-snack | `vegetable$`tomato
+snack | `.grpc.example.vegetable$`tomato
 ```
