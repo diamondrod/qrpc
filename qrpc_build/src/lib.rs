@@ -10,6 +10,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{self, BufRead, BufReader, BufWriter, Error, ErrorKind, Write};
 use std::iter::{Iterator, Peekable};
 use std::path::Path;
+use std::process::{exit, Command};
 use std::str::Chars;
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
@@ -30,8 +31,11 @@ const Q_FILE_HEADER: &'static str = r#"/
 
 //%% Rust %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
 
+/// Target output directory of Rust file.
+const TARGET_OUTPUT_DIR: &'static str = "../qrpc/src/client";
+
 /// Neme of a Rust file to generate.
-const TARGET_RUST_FILE_NAME: &'static str = "../qrpc/src/client/mod.rs";
+const TARGET_RUST_FILE_NAME: &'static str = "mod.rs";
 
 /// Header to load modules.
 const RUST_MOD_MODULES: &'static str = r#"
@@ -66,10 +70,6 @@ use prost_reflect::DynamicMessage;
 use super::{get_endpoint, ERROR_BUFFER};
 use tokio::runtime::Builder;
 use tonic::Request;
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++//
-//>> Implementation
-//++++++++++++++++++++++++++++++++++++++++++++++++++//
 "#;
 
 /// Definition of private function and interface in `mod.rs`.
@@ -179,6 +179,10 @@ macro_rules! import_template {
         r#"
 use super::proto::{package}::{snake_case_service}_client::{service}Client;
 use super::proto::{package}::{{{messages}}};
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+//>> Implementation
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
 "#
     };
 }
@@ -875,7 +879,7 @@ fn create_mod(packages: Vec<String>) -> io::Result<()> {
         .write(true)
         .truncate(true)
         .create(true)
-        .open(TARGET_RUST_FILE_NAME)?;
+        .open([TARGET_OUTPUT_DIR, TARGET_RUST_FILE_NAME].join("/"))?;
     let mut rust_file_writer = BufWriter::new(rust_output);
 
     // Header to load modules.
@@ -905,6 +909,30 @@ fn create_mod(packages: Vec<String>) -> io::Result<()> {
     rust_file_writer.write_all(MOD_DEFINITION.as_bytes())?;
 
     Ok(())
+}
+
+/// Format generated code.
+fn format(out_dir: &str) {
+    let dir = std::fs::read_dir(out_dir).unwrap();
+
+    for entry in dir {
+        let file = entry.unwrap().file_name().into_string().unwrap();
+        if !file.ends_with(".rs") {
+            continue;
+        }
+        let result =
+            Command::new(std::env::var("RUSTFMT").unwrap_or_else(|_| "rustfmt".to_owned()))
+                .arg("--emit")
+                .arg("files")
+                .arg("--edition")
+                .arg("2021")
+                .arg(format!("{}/{}", out_dir, file))
+                .output();
+        if let Err(error) = result{
+            eprintln!("error running rustfmt: {:?}", error);
+            exit(1)
+        }
+    }
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
@@ -1049,5 +1077,10 @@ pub fn generate_code(files: &[impl AsRef<Path>], includes: &[impl AsRef<Path>]) 
         .collect::<io::Result<()>>()?;
 
     // Create `mod.rs`.
-    create_mod(packages)
+    create_mod(packages)?;
+
+    // Format generated code
+    format(TARGET_OUTPUT_DIR);
+
+    Ok(())
 }
