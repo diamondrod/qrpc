@@ -1,6 +1,6 @@
 # gRPC Example
 
-## Example1 Restaurant
+## Example1: Restaurant
 
 In this example we use the `restaurant.proto` in `proto/` directory. In order to include this directory, set:
 ```sh
@@ -119,7 +119,7 @@ q).grpc.restaurant.finish[enlist[`table]!enlist 2i]
        ^
 ```
 
-## Example1 Ticketing Machine
+## Example2: Ticketing Machine
 
 In this example we use the `ticket.proto` in `proto/` directory. In order to include this directory, set:
 ```sh
