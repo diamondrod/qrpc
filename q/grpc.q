@@ -50,14 +50,15 @@ time_f     | 12:34:56.789
 
 /
 * @brief Set a server endpoint.
+* @param `package`: Package name for which a target gRPC server is serving.
 * @param `url` {string}: gRPC server endpoint.
 * @example
 ```
-q).grpc.set_endpoint["http://localhost:3160"]
-"initialized"
+q).grpc.set_endpoint[`restaurant; "http://localhost:3160"]
+"endpoint was set for package: restaurant"
 ```
 \
-.grpc.set_endpoint: `libqrpc 2: (`set_endpoint; 1);
+.grpc.set_endpoint: `libqrpc 2: (`set_endpoint; 2);
 
 // Load auto-generated code.
 \l q/grpc_client_methods.q

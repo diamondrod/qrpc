@@ -31,10 +31,31 @@ const Q_FILE_HEADER: &'static str = r#"/
 //%% Rust %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
 
 /// Neme of a Rust file to generate.
-const TARGET_RUST_FILE_NAME: &'static str = "../qrpc/src/client/qrpc.rs";
+const TARGET_RUST_FILE_NAME: &'static str = "../qrpc/src/client/mod.rs";
 
-/// Header of Rust file.
-const RUST_FILE_HEADER: &'static str = r#"//! This is an auto-generated code by qrpc_build crate.
+/// Header to load modules.
+const RUST_MOD_MODULES: &'static str = r#"
+//! This is an auto-generated code by qrpc_build crate.
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+//>> Load Libraries
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+
+mod proto;
+"#;
+
+/// Lines to load libraries in `mod.rs`.
+const RUST_MOD_LOAD_LIBRARIES: &'static str = r#"
+
+use bytes::Bytes;
+use kdbplus::api::*;
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
+use std::sync::RwLock;
+"#;
+
+/// Header of Rust file corresponding to a package.
+const RUST_SUBFILE_HEADER: &'static str = r#"//! This is an auto-generated code by qrpc_build crate.
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 //>> Load Libraries
@@ -42,12 +63,58 @@ const RUST_FILE_HEADER: &'static str = r#"//! This is an auto-generated code by 
 
 use crate::message::{decode_message, encode_to_message, PROTO_FILE_DESCRIPTOR};
 use kdbplus::api::*;
-use once_cell::sync::Lazy;
 use prost_reflect::DynamicMessage;
-use std::sync::RwLock;
-use super::ENDPOINT;
+use super::{get_endpoint, ERROR_BUFFER};
 use tokio::runtime::Builder;
 use tonic::Request;
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+//>> Implementation
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+"#;
+
+/// Definition of private function and interface in `mod.rs`.
+const MOD_DEFINITION: &'static str = r#"
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+//>> Private Functions
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+
+/// Get registered endpoint for a package.
+fn get_endpoint(package: &str) -> Bytes{
+    let endpoints = ENDPOINTS.read().expect("failed to get read lock");
+    endpoints[package].clone()
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+//>> Interface
+//++++++++++++++++++++++++++++++++++++++++++++++++++//
+
+/// Set endpoint to connect.
+/// # Parameters
+/// - `package`: Package name for which a target gRPC server is serving.
+/// - `endpoint`: Endpoint to connect a gRPC server.
+#[no_mangle]
+pub extern "C" fn set_endpoint(package: K, endpoint: K) -> K{
+    match package.get_symbol(){
+        Ok(package_) => {
+            match endpoint.get_string(){
+                Ok(url) => {
+                    let mut endpoint = ENDPOINTS.write().expect("failed to get write lock");
+                    if let Some(endpoint_) = endpoint.get_mut(package_){
+                        *endpoint_ = Bytes::from(url);
+                        let message = format!("endpoint was set for package: {}", package_);
+                        new_string(message.as_str())
+                    }
+                    else{
+                        new_error("not a registered package\0")
+                    }
+                },
+                Err(error) => new_error(error)
+            }
+        },
+        Err(error) => new_error(error)
+    }
+}
 "#;
 
 /// Definition of error buffer.
@@ -60,10 +127,6 @@ const ERROR_BUFFER: &'static str = r#"
 static ERROR_BUFFER: Lazy<RwLock<String>> = Lazy::new(||{
     RwLock::new(String::new())
 });
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++//
-//>> Implementation
-//++++++++++++++++++++++++++++++++++++++++++++++++++//
 "#;
 
 /// Template of a response handler for an exported client methods called from q with an empty response.
@@ -121,6 +184,26 @@ use super::proto::{package}::{{{messages}}};
     };
 }
 
+/// Definition of `ENDPOINTS` with blank elements.
+macro_rules! endpoints {
+    () => {
+        r#"
+/// Endpoint to connect at a call of gRPC service.
+static ENDPOINTS: Lazy<RwLock<HashMap<&'static str, Bytes>>> = Lazy::new(|| RwLock::new(HashMap::from([
+{}
+])));        
+"#
+    };
+}
+
+/// Template of element in `ENDPOINTS`.
+macro_rules! endpoint_template {
+    () => {
+        r#"
+    ("{}", Bytes::new()),"#
+    };
+}
+
 /// Template of a response handler for an exported client methods called from q with a non-empty response.
 /// # Parameters
 /// - `fq_response_type`: Fully qualified response type name starting from package name.
@@ -163,7 +246,7 @@ pub extern "C" fn {package}_{method}(message: K) -> K {{
                 .build()
                 .unwrap();
             if let Ok(mut client) = runtime.block_on({client_name}::connect(
-                ENDPOINT.read().expect("failed to get read lock").clone(),
+                get_endpoint("{package}")
             )) {{
                 match runtime.block_on(client.{method}(Request::new(
                     dynamic_message.transcode_to::<{request_type}>().unwrap(),
@@ -204,7 +287,7 @@ pub extern "C" fn {package}_{method}(_message: K) -> K {{
         .build()
         .unwrap();
     if let Ok(mut client) = runtime.block_on({client_name}::connect(
-        ENDPOINT.read().expect("failed to get read lock").clone(),
+        get_endpoint("{package}")
     )) {{
         match runtime.block_on(client.{method}(Request::new(()))) {{
             {response_handler}
@@ -618,12 +701,68 @@ fn identifier_to_token(identifier: String) -> Token {
     }
 }
 
+/// Build gRPC client code for q based on RPC definition.
+fn build_method_code(rpc: &RpcDefinition, package: &str, service_name: &str) -> String {
+    match (rpc.request.as_str(), rpc.response.as_str()) {
+        ("google.protobuf.Empty", "google.protobuf.Empty") => {
+            format!(
+                empty_input_method_template!(),
+                package = package,
+                method = camel_to_snake(rpc.method.as_str()),
+                client_name = format!("{}Client", service_name),
+                response_handler = EMPTY_RESPONSE_HANDLER
+            )
+        }
+        ("google.protobuf.Empty", _) => {
+            let response_handler = format!(
+                non_empty_response_handler!(),
+                fq_response_type = [package, rpc.response.as_str()].join("."),
+                response_type = rpc.response
+            );
+            format!(
+                empty_input_method_template!(),
+                package = package,
+                method = camel_to_snake(rpc.method.as_str()),
+                client_name = format!("{}Client", service_name),
+                response_handler = response_handler
+            )
+        }
+        (_, "google.protobuf.Empty") => {
+            format!(
+                non_empty_input_method_template!(),
+                package = package,
+                method = camel_to_snake(rpc.method.as_str()),
+                client_name = format!("{}Client", service_name),
+                fq_request_type = [package, rpc.request.as_str()].join("."),
+                request_type = rpc.request,
+                response_handler = EMPTY_RESPONSE_HANDLER
+            )
+        }
+        _ => {
+            let response_handler = format!(
+                non_empty_response_handler!(),
+                fq_response_type = [package, rpc.response.as_str()].join("."),
+                response_type = rpc.response
+            );
+            format!(
+                non_empty_input_method_template!(),
+                package = package,
+                method = camel_to_snake(rpc.method.as_str()),
+                client_name = format!("{}Client", service_name),
+                fq_request_type = [package, rpc.request.as_str()].join("."),
+                request_type = rpc.request,
+                response_handler = response_handler
+            )
+        }
+    }
+}
+
 /// Consume AST and convert it to code.
 fn ast_to_code(
-    rust_file_writer: &mut BufWriter<File>,
     q_file_writer: &mut BufWriter<File>,
     ast: Node,
     package: &mut String,
+    packages: &mut Vec<String>,
 ) -> io::Result<()> {
     match ast {
         Node::Package(pkg) => {
@@ -636,6 +775,7 @@ fn ast_to_code(
             messages,
             rpcs,
         } => {
+            // Define service methods creating a corresponding file
             if package.is_empty() {
                 Err(Error::new(
                     ErrorKind::InvalidData,
@@ -643,79 +783,44 @@ fn ast_to_code(
                 ))
             } else {
                 let snake_case_service = camel_to_snake(name.as_str());
+
+                // Add the package including a service to a global package list
+                packages.push(package.clone());
+
+                // Open subfile for the package
+                let subfile = OpenOptions::new()
+                    .read(false)
+                    .write(true)
+                    .truncate(true)
+                    .create(true)
+                    .open(format!("../qrpc/src/client/{}.rs", package.as_str()))?;
+                let mut subfile_writer = BufWriter::new(subfile);
+
+                // Write header of subfile
+                subfile_writer.write_all(RUST_SUBFILE_HEADER.as_bytes())?;
+
                 // Write import lines.
                 let import = format!(
                     import_template!(),
                     package = package.as_str(),
                     snake_case_service = snake_case_service.as_str(),
                     service = name.as_str(),
-                    messages = messages.join(",")
+                    messages = messages.join(", ")
                 );
-                rust_file_writer.write_all(import.as_bytes())?;
+                subfile_writer.write_all(import.as_bytes())?;
 
                 // Write method code.
                 for rpc in rpcs {
-                    let method = match (rpc.request.as_str(), rpc.response.as_str()) {
-                        ("google.protobuf.Empty", "google.protobuf.Empty") => {
-                            format!(
-                                empty_input_method_template!(),
-                                package = package.as_str(),
-                                method = camel_to_snake(rpc.method.as_str()),
-                                client_name = format!("{}Client", name),
-                                response_handler = EMPTY_RESPONSE_HANDLER
-                            )
-                        }
-                        ("google.protobuf.Empty", _) => {
-                            let response_handler = format!(
-                                non_empty_response_handler!(),
-                                fq_response_type =
-                                    [package.as_str(), rpc.response.as_str()].join("."),
-                                response_type = rpc.response
-                            );
-                            format!(
-                                empty_input_method_template!(),
-                                package = package.as_str(),
-                                method = camel_to_snake(rpc.method.as_str()),
-                                client_name = format!("{}Client", name),
-                                response_handler = response_handler
-                            )
-                        }
-                        (_, "google.protobuf.Empty") => {
-                            format!(
-                                non_empty_input_method_template!(),
-                                package = package.as_str(),
-                                method = camel_to_snake(rpc.method.as_str()),
-                                client_name = format!("{}Client", name),
-                                fq_request_type =
-                                    [package.as_str(), rpc.request.as_str()].join("."),
-                                request_type = rpc.request,
-                                response_handler = EMPTY_RESPONSE_HANDLER
-                            )
-                        }
-                        _ => {
-                            let response_handler = format!(
-                                non_empty_response_handler!(),
-                                fq_response_type =
-                                    [package.as_str(), rpc.response.as_str()].join("."),
-                                response_type = rpc.response
-                            );
-                            format!(
-                                non_empty_input_method_template!(),
-                                package = package.as_str(),
-                                method = camel_to_snake(rpc.method.as_str()),
-                                client_name = format!("{}Client", name),
-                                fq_request_type =
-                                    [package.as_str(), rpc.request.as_str()].join("."),
-                                request_type = rpc.request,
-                                response_handler = response_handler
-                            )
-                        }
-                    };
-                    rust_file_writer.write_all(method.as_bytes())?;
+                    // Build corresonding code to a method.
+                    let method = build_method_code(&rpc, package, &name);
+                    subfile_writer.write_all(method.as_bytes())?;
 
                     // Write a line to load Rust function.
-                    let method_load_line =
-                        format!(method_load_template!(), package = package.as_str(), method = camel_to_snake(rpc.method.as_str()));
+                    let method_load_line = format!(
+                        method_load_template!(),
+                        package = package.as_str(),
+                        method = camel_to_snake(rpc.method.as_str())
+                    );
                     q_file_writer.write_all(method_load_line.as_bytes())?;
                 }
                 Ok(())
@@ -724,7 +829,12 @@ fn ast_to_code(
         Node::Enum { name, elements } => {
             // Write enum definition
             let elements = elements.join("`");
-            let enum_definition = format!(enum_template!(), package = *package, source = name, elements = elements);
+            let enum_definition = format!(
+                enum_template!(),
+                package = *package,
+                source = name,
+                elements = elements
+            );
             q_file_writer.write_all(enum_definition.as_bytes())
         }
     }
@@ -759,6 +869,46 @@ fn camel_to_snake(camel: &str) -> String {
     snake
 }
 
+// Create a `mod.rs`.
+fn create_mod(packages: Vec<String>) -> io::Result<()> {
+    // Open Rust target file.
+    let rust_output = OpenOptions::new()
+        .read(false)
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(TARGET_RUST_FILE_NAME)?;
+    let mut rust_file_writer = BufWriter::new(rust_output);
+
+    // Header to load modules.
+    rust_file_writer.write_all(RUST_MOD_MODULES.as_bytes())?;
+
+    // Add child modules.
+    for package in &packages {
+        let module = format!("mod {};\n", package);
+        rust_file_writer.write_all(module.as_bytes())?;
+    }
+
+    // Header to load libraries.
+    rust_file_writer.write_all(RUST_MOD_LOAD_LIBRARIES.as_bytes())?;
+
+    // Write definition of error buffer.
+    rust_file_writer.write_all(ERROR_BUFFER.as_bytes())?;
+
+    // Write definition of `ENDPOINTS`.
+    let mut endpoint_elements = Vec::new();
+    packages.into_iter().for_each(|package| {
+        endpoint_elements.push(format!(endpoint_template!(), package));
+    });
+    let endpoints_definition = format!(endpoints!(), endpoint_elements.join("\n"));
+    rust_file_writer.write_all(endpoints_definition.as_bytes())?;
+
+    // Write functions.
+    rust_file_writer.write_all(MOD_DEFINITION.as_bytes())?;
+
+    Ok(())
+}
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
 //>> Interface
 //++++++++++++++++++++++++++++++++++++++++++++++++++//
@@ -777,22 +927,11 @@ pub fn generate_code(files: &[impl AsRef<Path>], includes: &[impl AsRef<Path>]) 
     // Write a header of q file.
     q_file_writer.write_all(Q_FILE_HEADER.as_bytes())?;
 
-    // Open Rust target file.
-    let rust_output = OpenOptions::new()
-        .read(false)
-        .write(true)
-        .truncate(true)
-        .create(true)
-        .open(TARGET_RUST_FILE_NAME)?;
-    let mut rust_file_writer = BufWriter::new(rust_output);
-
-    // Write headers.
-    rust_file_writer.write_all(RUST_FILE_HEADER.as_bytes())?;
-
-    // Write definition of error buffer.
-    rust_file_writer.write_all(ERROR_BUFFER.as_bytes())?;
+    // List of packages to include.
+    let mut packages = Vec::new();
 
     // Read inputs and check service related information.
+    // Then create a corresponding Rust code as a module under `mod.rs`.
     files
         .iter()
         .map(|file| {
@@ -827,12 +966,7 @@ pub fn generate_code(files: &[impl AsRef<Path>], includes: &[impl AsRef<Path>]) 
                             if line.trim().starts_with("package") {
                                 let mut analyzer = SemanticAnalyzer::new(line.as_str())?;
                                 let ast = analyzer.parse()?;
-                                ast_to_code(
-                                    &mut rust_file_writer,
-                                    &mut q_file_writer,
-                                    ast,
-                                    &mut package,
-                                )?;
+                                ast_to_code(&mut q_file_writer, ast, &mut package, &mut packages)?;
                                 line.clear();
                             } else if line.trim().starts_with("service") {
                                 in_service_definition = true;
@@ -854,10 +988,10 @@ pub fn generate_code(files: &[impl AsRef<Path>], includes: &[impl AsRef<Path>]) 
                                         SemanticAnalyzer::new(service_definition.as_str())?;
                                     let ast = analyzer.parse()?;
                                     ast_to_code(
-                                        &mut rust_file_writer,
                                         &mut q_file_writer,
                                         ast,
                                         &mut package,
+                                        &mut packages,
                                     )?;
                                     // Escape from service
                                     service_definition.clear();
@@ -870,10 +1004,10 @@ pub fn generate_code(files: &[impl AsRef<Path>], includes: &[impl AsRef<Path>]) 
                                         SemanticAnalyzer::new(enum_definition.as_str())?;
                                     let ast = analyzer.parse()?;
                                     ast_to_code(
-                                        &mut rust_file_writer,
                                         &mut q_file_writer,
                                         ast,
                                         &mut package,
+                                        &mut packages,
                                     )?;
                                     // Escape from enum
                                     enum_definition.clear();
@@ -916,5 +1050,6 @@ pub fn generate_code(files: &[impl AsRef<Path>], includes: &[impl AsRef<Path>]) 
         })
         .collect::<io::Result<()>>()?;
 
-    Ok(())
+    // Create `mod.rs`.
+    create_mod(packages)
 }

@@ -150,9 +150,9 @@ impl TicketingMachine for Machine {
         _request: Request<()>,
     ) -> Result<Response<AvailableSeats>, Status> {
         let inventory = self.inventory.read().await;
-        let seats = inventory
-            .iter()
-            .fold(HashMap::new(), |mut map, (_, seat)| {
+        let seats = inventory.iter().fold(HashMap::new(), |mut map, (_, seat)| {
+            if seat.name.is_none() {
+              // Not reserved yet
                 match seat.class {
                     Class::NoPreference => (),
                     Class::Stand | Class::Arena | Class::Vip => {
@@ -164,8 +164,9 @@ impl TicketingMachine for Machine {
                         }
                     }
                 }
-                map
-            });
+            }
+            map
+        });
         Ok(Response::new(AvailableSeats { inventory: seats }))
     }
 }
