@@ -129,7 +129,7 @@ encoded: .grpc.encode[`example.Basket; `desserts`price`snack!(`.grpc.example.fru
 
 //%% gRPC %%//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv/
 
-.test.ASSERT_EQ["endpoint"; .grpc.set_endpoint["http://localhost:3160"]; "endpoint was set"];
+.test.ASSERT_EQ["endpoint"; .grpc.set_endpoint[`restaurant; "http://localhost:3160"]; "endpoint was set for package: restaurant"];
 .test.ASSERT_EQ["order1"; .grpc.restaurant.submit[`table`items`ordered_time!(2i; `.grpc.restaurant.Menu$`pizza`coke`pizza`sushi; 2000.02.01D12:00:30.123456)]; enlist[`accepted]!enlist 1b]
 .test.ASSERT_EQ["order2"; .grpc.restaurant.submit[`table`items`ordered_time!(2i; `.grpc.restaurant.Menu$`steak`coke`sushi; 2000.02.01D12:00:40.123456)];  enlist[`accepted]!enlist 1b]
 .test.ASSERT_EQ["order3"; .grpc.restaurant.submit[`table`items`ordered_time!(2i; `.grpc.restaurant.Menu$`steak`steak`chips`coke`spaghetti`hamburger`chips`salad`pizza`sushi; 2000.02.01D12:05:30.123456)]; enlist[`reason]!enlist "too many items. must be less than 10"]

@@ -46,7 +46,6 @@ mod proto;
 
 /// Lines to load libraries in `mod.rs`.
 const RUST_MOD_LOAD_LIBRARIES: &'static str = r#"
-
 use bytes::Bytes;
 use kdbplus::api::*;
 use once_cell::sync::Lazy;
@@ -199,8 +198,7 @@ static ENDPOINTS: Lazy<RwLock<HashMap<&'static str, Bytes>>> = Lazy::new(|| RwLo
 /// Template of element in `ENDPOINTS`.
 macro_rules! endpoint_template {
     () => {
-        r#"
-    ("{}", Bytes::new()),"#
+        r#"        ("{}", Bytes::new()),"#
     };
 }
 
