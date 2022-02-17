@@ -56,10 +56,10 @@ enum Menu{
   coke = 8;
 }
 ```
-will define enum variable `Menu` in  the same file as the generated one for service:
+in a package `restaurant` will define enum variable `.grpc.restaurant.Menu` in  the same file as the generated one for service:
 ```q
 // Source of enum message Menu.
-Menu: `smile`pizza`spaghetti`salad`steak`sushi`hamburger`chips`coke;
+.grpc.restaurant.Menu: `smile`pizza`spaghetti`salad`steak`sushi`hamburger`chips`coke;
 ```
 
 ## Install
