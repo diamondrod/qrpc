@@ -1,0 +1,16 @@
+[package]
+name = "restaurant"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-trait="^0.1"
+bytes = "1"
+chrono="^0.4"
+prost="^0.9"
+prost-types="^0.9"
+tokio={version="1", features=["rt", "rt-multi-thread"]}
+tonic="^0.6"
+
+[build-dependencies]
+tonic-build="^0.6"

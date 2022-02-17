@@ -211,7 +211,7 @@ pub extern "C" fn {package}_{method}(_message: K) -> K {{
             Err(error) => {{
                 let mut buffer = ERROR_BUFFER.write().expect("failed to get write lock");
                 buffer.clear();
-                let null_terminated_error = format!("{}\0", error.message());
+                let null_terminated_error = format!("{{}}\0", error.message());
                 buffer.push_str(null_terminated_error.as_str());
                 new_error(buffer.as_str())
             }}
@@ -660,7 +660,7 @@ fn ast_to_code(
                             format!(
                                 empty_input_method_template!(),
                                 package = package.as_str(),
-                                method = rpc.method.to_lowercase(),
+                                method = camel_to_snake(rpc.method.as_str()),
                                 client_name = format!("{}Client", name),
                                 response_handler = EMPTY_RESPONSE_HANDLER
                             )
@@ -675,7 +675,7 @@ fn ast_to_code(
                             format!(
                                 empty_input_method_template!(),
                                 package = package.as_str(),
-                                method = rpc.method.to_lowercase(),
+                                method = camel_to_snake(rpc.method.as_str()),
                                 client_name = format!("{}Client", name),
                                 response_handler = response_handler
                             )
@@ -684,7 +684,7 @@ fn ast_to_code(
                             format!(
                                 non_empty_input_method_template!(),
                                 package = package.as_str(),
-                                method = rpc.method.to_lowercase(),
+                                method = camel_to_snake(rpc.method.as_str()),
                                 client_name = format!("{}Client", name),
                                 fq_request_type =
                                     [package.as_str(), rpc.request.as_str()].join("."),
@@ -702,7 +702,7 @@ fn ast_to_code(
                             format!(
                                 non_empty_input_method_template!(),
                                 package = package.as_str(),
-                                method = rpc.method.to_lowercase(),
+                                method = camel_to_snake(rpc.method.as_str()),
                                 client_name = format!("{}Client", name),
                                 fq_request_type =
                                     [package.as_str(), rpc.request.as_str()].join("."),
@@ -715,7 +715,7 @@ fn ast_to_code(
 
                     // Write a line to load Rust function.
                     let method_load_line =
-                        format!(method_load_template!(), package = package.as_str(), method = rpc.method.to_lowercase());
+                        format!(method_load_template!(), package = package.as_str(), method = camel_to_snake(rpc.method.as_str()));
                     q_file_writer.write_all(method_load_line.as_bytes())?;
                 }
                 Ok(())

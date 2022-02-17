@@ -1,3 +1,3 @@
 [workspace]
 members=["qrpc", "qrpc_build"]
-exclude=["examples/restaurant"]
+exclude=["examples/restaurant", "examples/ticketing_machine"]

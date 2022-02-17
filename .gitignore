@@ -16,6 +16,11 @@ examples/restaurant/Cargo.lock
 examples/restaurant/src/proto/restaurant.rs
 examples/restaurant/src/proto/google.protobuf.rs
 examples/restaurant/src/proto/q.rs
+examples/ticketing_machine/target
+examples/ticketing_machine/Cargo.lock
+examples/ticketing_machine/src/proto/restaurant.rs
+examples/ticketing_machine/src/proto/google.protobuf.rs
+examples/ticketing_machine/src/proto/q.rs
 libqrpc.so
 tests/libqrpc.so
 
