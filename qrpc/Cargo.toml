@@ -1,8 +1,12 @@
 [package]
 name = "qrpc"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["diamondrod"]
+license = "Apache-2.0"
+description = """
+gRPC client for q/kdb+.
+"""
 
 [lib]
 crate-type=["cdylib"]

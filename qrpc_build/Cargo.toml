@@ -1,5 +1,9 @@
 [package]
 name = "qrpc_build"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["diamondrod"]
+license = "Apache-2.0"
+description = """
+Generate corrensponding Rust and q code from users' proto files for qrpc.
+"""
